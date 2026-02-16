@@ -1,4 +1,4 @@
-import { RecurrenceRule, SplitMode } from '@prisma/client'
+import { RecurrenceRule, SettlementMode, SplitMode } from '@prisma/client'
 import Decimal from 'decimal.js'
 
 import * as z from 'zod'
@@ -141,8 +141,40 @@ export const expenseFormSchema = z
         Object.values(RecurrenceRule) as any,
       )
       .default('NONE'),
+    settlementMode: z
+      .enum<SettlementMode, [SettlementMode, ...SettlementMode[]]>(
+        Object.values(SettlementMode) as any,
+      )
+      .default('NORMAL'),
+    leaseItemName: z.string().optional(),
+    leaseOwnerId: z.string().optional(),
+    leaseBuybackDate: z.coerce.date().optional(),
   })
   .superRefine((expense, ctx) => {
+    if (expense.settlementMode === 'LEASE') {
+      if (!expense.leaseOwnerId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'leaseOwnerRequired',
+          path: ['leaseOwnerId'],
+        })
+      }
+      if (!expense.leaseItemName || expense.leaseItemName.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'leaseItemNameRequired',
+          path: ['leaseItemName'],
+        })
+      }
+      if (!expense.leaseBuybackDate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'leaseBuybackDateRequired',
+          path: ['leaseBuybackDate'],
+        })
+      }
+    }
+
     switch (expense.splitMode) {
       case 'EVENLY':
         break // noop

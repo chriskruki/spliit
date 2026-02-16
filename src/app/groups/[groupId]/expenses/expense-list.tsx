@@ -4,8 +4,9 @@ import { getGroupExpensesAction } from '@/app/groups/[groupId]/expenses/expense-
 import { Button } from '@/components/ui/button'
 import { SearchBar } from '@/components/ui/search-bar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getCurrencyFromGroup } from '@/lib/utils'
+import { cn, getCurrencyFromGroup } from '@/lib/utils'
 import { trpc } from '@/trpc/client'
+import { SettlementMode } from '@prisma/client'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
@@ -58,10 +59,33 @@ function getGroupedExpensesByDate(expenses: ExpensesType) {
   }, {})
 }
 
+const SETTLEMENT_FILTERS = [
+  { value: undefined, label: 'filterAll', color: '' },
+  {
+    value: 'NORMAL' as SettlementMode,
+    label: 'filterNormal',
+    color: 'bg-green-500',
+  },
+  {
+    value: 'STRAIGHT' as SettlementMode,
+    label: 'filterStraight',
+    color: 'bg-blue-500',
+  },
+  {
+    value: 'LEASE' as SettlementMode,
+    label: 'filterLease',
+    color: 'bg-amber-500',
+  },
+] as const
+
 export function ExpenseList() {
   const { groupId, group } = useCurrentGroup()
   const [searchText, setSearchText] = useState('')
   const [debouncedSearchText] = useDebounce(searchText, 300)
+  const [settlementFilter, setSettlementFilter] = useState<
+    SettlementMode | undefined
+  >(undefined)
+  const t = useTranslations('Expenses')
 
   const participants = group?.participants
 
@@ -89,9 +113,28 @@ export function ExpenseList() {
   return (
     <>
       <SearchBar onValueChange={(value) => setSearchText(value)} />
+      <div className="flex gap-1.5 px-4 sm:px-6 py-2 overflow-x-auto">
+        {SETTLEMENT_FILTERS.map((filter) => (
+          <Button
+            key={filter.label}
+            variant={settlementFilter === filter.value ? 'default' : 'outline'}
+            size="sm"
+            className={cn('text-xs h-7 shrink-0')}
+            onClick={() => setSettlementFilter(filter.value)}
+          >
+            {filter.color && (
+              <span
+                className={`h-2 w-2 rounded-full ${filter.color} mr-1`}
+              />
+            )}
+            {t(filter.label)}
+          </Button>
+        ))}
+      </div>
       <ExpenseListForSearch
         groupId={groupId}
         searchText={debouncedSearchText}
+        settlementMode={settlementFilter}
       />
     </>
   )
@@ -100,9 +143,11 @@ export function ExpenseList() {
 const ExpenseListForSearch = ({
   groupId,
   searchText,
+  settlementMode,
 }: {
   groupId: string
   searchText: string
+  settlementMode?: SettlementMode
 }) => {
   const utils = trpc.useUtils()
   const { group } = useCurrentGroup()
@@ -121,7 +166,7 @@ const ExpenseListForSearch = ({
     isLoading: expensesAreLoading,
     fetchNextPage,
   } = trpc.groups.expenses.list.useInfiniteQuery(
-    { groupId, limit: PAGE_SIZE, filter: searchText },
+    { groupId, limit: PAGE_SIZE, filter: searchText, settlementMode },
     { getNextPageParam: ({ nextCursor }) => nextCursor },
   )
   const expenses = data?.pages.flatMap((page) => page.expenses)

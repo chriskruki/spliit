@@ -52,8 +52,9 @@ import {
   getCurrencyFromGroup,
 } from '@/lib/utils'
 import { AppRouterOutput } from '@/trpc/routers/_app'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { RecurrenceRule } from '@prisma/client'
+import { RecurrenceRule, SettlementMode } from '@prisma/client'
 import { ChevronRight, Save } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import Link from 'next/link'
@@ -207,6 +208,10 @@ export function ExpenseForm({
           documents: expense.documents,
           notes: expense.notes ?? '',
           recurrenceRule: expense.recurrenceRule ?? undefined,
+          settlementMode: expense.settlementMode ?? 'NORMAL',
+          leaseItemName: expense.leaseItemName ?? undefined,
+          leaseOwnerId: expense.leaseOwnerId ?? undefined,
+          leaseBuybackDate: expense.leaseBuybackDate ?? undefined,
         }
       : searchParams.get('reimbursement')
       ? {
@@ -235,6 +240,7 @@ export function ExpenseForm({
           documents: [],
           notes: '',
           recurrenceRule: RecurrenceRule.NONE,
+          settlementMode: 'NORMAL' as SettlementMode,
         }
       : {
           title: searchParams.get('title') ?? '',
@@ -266,6 +272,7 @@ export function ExpenseForm({
             : [],
           notes: '',
           recurrenceRule: RecurrenceRule.NONE,
+          settlementMode: 'NORMAL' as SettlementMode,
         },
   })
   const [isCategoryLoading, setCategoryLoading] = useState(false)
@@ -779,6 +786,7 @@ export function ExpenseForm({
                       form.setValue('recurrenceRule', value as RecurrenceRule)
                     }}
                     defaultValue={getSelectedRecurrenceRule(field)}
+                    disabled={form.watch('settlementMode') === 'LEASE'}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="NONE" />
@@ -807,6 +815,174 @@ export function ExpenseForm({
             />
           </CardContent>
         </Card>
+
+        {/* Settlement Mode Selector */}
+        {!searchParams.get('reimbursement') && (
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>{t('SettlementMode.label')}</CardTitle>
+              <CardDescription>
+                {t('SettlementMode.description')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="settlementMode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={(value) => {
+                          field.onChange(value)
+                          if (value === 'LEASE') {
+                            form.setValue(
+                              'recurrenceRule',
+                              RecurrenceRule.NONE,
+                            )
+                          }
+                        }}
+                        defaultValue={field.value}
+                        className="flex flex-col sm:flex-row gap-3"
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer rounded-lg border p-3 flex-1 hover:bg-accent [&:has([data-state=checked])]:border-green-500 [&:has([data-state=checked])]:bg-green-50 dark:[&:has([data-state=checked])]:bg-green-950">
+                          <RadioGroupItem value="NORMAL" />
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full bg-green-500" />
+                              <span className="text-sm font-medium">
+                                {t('SettlementMode.normal')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {t('SettlementMode.normalDescription')}
+                            </p>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer rounded-lg border p-3 flex-1 hover:bg-accent [&:has([data-state=checked])]:border-blue-500 [&:has([data-state=checked])]:bg-blue-50 dark:[&:has([data-state=checked])]:bg-blue-950">
+                          <RadioGroupItem value="STRAIGHT" />
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full bg-blue-500" />
+                              <span className="text-sm font-medium">
+                                {t('SettlementMode.straight')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {t('SettlementMode.straightDescription')}
+                            </p>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer rounded-lg border p-3 flex-1 hover:bg-accent [&:has([data-state=checked])]:border-amber-500 [&:has([data-state=checked])]:bg-amber-50 dark:[&:has([data-state=checked])]:bg-amber-950">
+                          <RadioGroupItem value="LEASE" />
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full bg-amber-500" />
+                              <span className="text-sm font-medium">
+                                {t('SettlementMode.lease')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {t('SettlementMode.leaseDescription')}
+                            </p>
+                          </div>
+                        </label>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Conditional Lease Fields */}
+              {form.watch('settlementMode') === 'LEASE' && (
+                <div className="mt-4 border-l-4 border-l-amber-500 rounded-lg border p-4 space-y-4">
+                  <h4 className="text-sm font-semibold">
+                    {t('LeaseFields.title')}
+                  </h4>
+
+                  <FormField
+                    control={form.control}
+                    name="leaseItemName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('LeaseFields.itemName')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t('LeaseFields.itemNamePlaceholder')}
+                            className="text-base"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('LeaseFields.itemNameDescription')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="leaseOwnerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('LeaseFields.whoKeeps')}</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={t('LeaseFields.whoKeeps')}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {group.participants.map(({ id, name }) => (
+                              <SelectItem key={id} value={id}>
+                                {name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {t('LeaseFields.whoKeepsDescription')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="leaseBuybackDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('LeaseFields.buybackDate')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            className="text-base"
+                            type="date"
+                            defaultValue={
+                              field.value ? formatDate(field.value) : ''
+                            }
+                            onChange={(event) => {
+                              field.onChange(new Date(event.target.value))
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('LeaseFields.buybackDateDescription')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="mt-4">
           <CardHeader>

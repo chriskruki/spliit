@@ -13,9 +13,42 @@ export type Reimbursement = {
   amount: number
 }
 
-export function getBalances(
-  expenses: NonNullable<Awaited<ReturnType<typeof getGroupExpenses>>>,
-): Balances {
+export type StraightBalanceItem = {
+  expenseId: string
+  expenseTitle: string
+  from: string
+  to: string
+  amount: number
+}
+
+export type LeaseItem = {
+  expenseId: string
+  itemName: string
+  totalCost: number
+  ownerId: string
+  buybackDate: Date | null
+  buybackCompleted: boolean
+  buybackBreakdown: Array<{ participantId: string; amount: number }>
+}
+
+export type SettlementBalances = {
+  normal: {
+    balances: Balances
+    reimbursements: Reimbursement[]
+    publicBalances: Balances
+  }
+  straight: StraightBalanceItem[]
+  lease: LeaseItem[]
+  totals: {
+    totalOwed: number
+    totalOwedToYou: number
+    net: number
+  }
+}
+
+type GroupExpenses = NonNullable<Awaited<ReturnType<typeof getGroupExpenses>>>
+
+export function getBalances(expenses: GroupExpenses): Balances {
   const balances: Balances = {}
 
   for (const expense of expenses) {
@@ -129,4 +162,123 @@ export function getSuggestedReimbursements(
     }
   }
   return reimbursements.filter(({ amount }) => Math.round(amount) + 0 !== 0)
+}
+
+function computeParticipantShares(expense: GroupExpenses[number]) {
+  const paidFors = expense.paidFor
+  const totalPaidForShares = paidFors.reduce(
+    (sum, paidFor) => sum + paidFor.shares,
+    0,
+  )
+  let remaining = expense.amount
+  return paidFors.map((paidFor, index) => {
+    const isLast = index === paidFors.length - 1
+    const [shares, totalShares] = match(expense.splitMode)
+      .with('EVENLY', () => [1, paidFors.length])
+      .with('BY_SHARES', () => [paidFor.shares, totalPaidForShares])
+      .with('BY_PERCENTAGE', () => [paidFor.shares, totalPaidForShares])
+      .with('BY_AMOUNT', () => [paidFor.shares, totalPaidForShares])
+      .exhaustive()
+    const amount = isLast
+      ? remaining
+      : (expense.amount * shares) / totalShares
+    remaining -= amount
+    return { participantId: paidFor.participant.id, amount: Math.round(amount) }
+  })
+}
+
+function getStraightBalanceItems(
+  expenses: GroupExpenses,
+): StraightBalanceItem[] {
+  const items: StraightBalanceItem[] = []
+  for (const expense of expenses) {
+    const shares = computeParticipantShares(expense)
+    for (const share of shares) {
+      if (share.participantId !== expense.paidBy.id && share.amount !== 0) {
+        items.push({
+          expenseId: expense.id,
+          expenseTitle: expense.title,
+          from: share.participantId,
+          to: expense.paidBy.id,
+          amount: share.amount,
+        })
+      }
+    }
+  }
+  return items
+}
+
+function getLeaseItems(expenses: GroupExpenses): LeaseItem[] {
+  return expenses.map((expense) => {
+    const ownerId = expense.leaseOwnerId ?? expense.paidBy.id
+    const shares = computeParticipantShares(expense)
+    const buybackBreakdown = shares
+      .filter((s) => s.participantId !== ownerId && s.amount !== 0)
+      .map((s) => ({ participantId: s.participantId, amount: s.amount }))
+
+    return {
+      expenseId: expense.id,
+      itemName: expense.leaseItemName ?? expense.title,
+      totalCost: expense.amount,
+      ownerId,
+      buybackDate: expense.leaseBuybackDate,
+      buybackCompleted: expense.leaseBuybackCompleted,
+      buybackBreakdown,
+    }
+  })
+}
+
+export function getSettlementBalances(
+  expenses: GroupExpenses,
+): SettlementBalances {
+  const normalExpenses: GroupExpenses = []
+  const straightExpenses: GroupExpenses = []
+  const leaseExpenses: GroupExpenses = []
+
+  for (const expense of expenses) {
+    const mode = expense.settlementMode ?? 'NORMAL'
+    if (mode === 'STRAIGHT') {
+      straightExpenses.push(expense)
+    } else if (mode === 'LEASE') {
+      leaseExpenses.push(expense)
+    } else {
+      normalExpenses.push(expense)
+    }
+  }
+
+  const balances = getBalances(normalExpenses)
+  const reimbursements = getSuggestedReimbursements(balances)
+  const publicBalances = getPublicBalances(reimbursements)
+
+  const straightItems = getStraightBalanceItems(straightExpenses)
+  const leaseItems = getLeaseItems(leaseExpenses)
+
+  // Compute grand totals
+  let totalOwed = 0
+  let totalOwedToYou = 0
+
+  for (const r of reimbursements) {
+    totalOwed += r.amount
+  }
+  for (const item of straightItems) {
+    totalOwed += item.amount
+  }
+  for (const item of leaseItems) {
+    if (!item.buybackCompleted) {
+      for (const b of item.buybackBreakdown) {
+        totalOwed += b.amount
+      }
+    }
+  }
+
+  return {
+    normal: { balances, reimbursements, publicBalances },
+    straight: straightItems,
+    lease: leaseItems,
+    totals: {
+      totalOwed,
+      totalOwedToYou,
+      net: totalOwed - totalOwedToYou,
+    },
+  }
 }

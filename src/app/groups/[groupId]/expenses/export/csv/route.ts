@@ -12,6 +12,12 @@ const splitModeLabel = {
   BY_AMOUNT: 'Unevenly – By amount',
 }
 
+const settlementModeLabel = {
+  NORMAL: 'Normal',
+  STRAIGHT: 'Straight',
+  LEASE: 'Lease',
+}
+
 function formatDate(isoDateString: Date): string {
   const date = new Date(isoDateString)
   const year = date.getFullYear()
@@ -47,6 +53,7 @@ export async function GET(
           paidFor: { select: { participantId: true, shares: true } },
           isReimbursement: true,
           splitMode: true,
+          settlementMode: true,
         },
       },
       participants: { select: { id: true, name: true } },
@@ -94,6 +101,7 @@ export async function GET(
     { label: 'Conversion rate', value: 'conversionRate' },
     { label: 'Is Reimbursement', value: 'isReimbursement' },
     { label: 'Split mode', value: 'splitMode' },
+    { label: 'Settlement mode', value: 'settlementMode' },
     ...group.participants.map((participant) => ({
       label: participant.name,
       value: participant.name,
@@ -120,6 +128,7 @@ export async function GET(
       : null,
     isReimbursement: expense.isReimbursement ? 'Yes' : 'No',
     splitMode: splitModeLabel[expense.splitMode],
+    settlementMode: settlementModeLabel[expense.settlementMode] ?? 'Normal',
     ...Object.fromEntries(
       group.participants.map((participant) => {
         const { totalShares, participantShare } = expense.paidFor.reduce(

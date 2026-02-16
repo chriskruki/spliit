@@ -1,9 +1,5 @@
 import { getGroupExpenses } from '@/lib/api'
-import {
-  getBalances,
-  getPublicBalances,
-  getSuggestedReimbursements,
-} from '@/lib/balances'
+import { getSettlementBalances } from '@/lib/balances'
 import { baseProcedure } from '@/trpc/init'
 import { z } from 'zod'
 
@@ -11,9 +7,13 @@ export const listGroupBalancesProcedure = baseProcedure
   .input(z.object({ groupId: z.string().min(1) }))
   .query(async ({ input: { groupId } }) => {
     const expenses = await getGroupExpenses(groupId)
-    const balances = getBalances(expenses)
-    const reimbursements = getSuggestedReimbursements(balances)
-    const publicBalances = getPublicBalances(reimbursements)
+    const settlementBalances = getSettlementBalances(expenses)
 
-    return { balances: publicBalances, reimbursements }
+    return {
+      balances: settlementBalances.normal.publicBalances,
+      reimbursements: settlementBalances.normal.reimbursements,
+      straight: settlementBalances.straight,
+      lease: settlementBalances.lease,
+      totals: settlementBalances.totals,
+    }
   })

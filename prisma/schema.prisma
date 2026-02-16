@@ -30,6 +30,7 @@ model Participant {
   groupId         String
   expensesPaidBy  Expense[]
   expensesPaidFor ExpensePaidFor[]
+  leaseExpenses   Expense[] @relation("LeaseOwner")
 }
 
 model Category {
@@ -56,6 +57,12 @@ model Expense {
   groupId          String
   isReimbursement  Boolean           @default(false)
   splitMode        SplitMode         @default(EVENLY)
+  settlementMode        SettlementMode @default(NORMAL)
+  leaseOwnerId          String?
+  leaseOwner            Participant?   @relation("LeaseOwner", fields: [leaseOwnerId], references: [id])
+  leaseBuybackDate      DateTime?      @db.Date
+  leaseBuybackCompleted Boolean        @default(false)
+  leaseItemName         String?
   createdAt        DateTime          @default(now())
   documents        ExpenseDocument[]
   notes            String?
@@ -79,6 +86,12 @@ enum SplitMode {
   BY_SHARES
   BY_PERCENTAGE
   BY_AMOUNT
+}
+
+enum SettlementMode {
+  NORMAL
+  STRAIGHT
+  LEASE
 }
 
 model RecurringExpenseLink {

@@ -77,6 +77,19 @@ export async function createExpense(
       title: expenseFormValues.title,
       paidById: expenseFormValues.paidBy,
       splitMode: expenseFormValues.splitMode,
+      settlementMode: expenseFormValues.settlementMode,
+      leaseOwnerId:
+        expenseFormValues.settlementMode === 'LEASE'
+          ? expenseFormValues.leaseOwnerId
+          : null,
+      leaseBuybackDate:
+        expenseFormValues.settlementMode === 'LEASE'
+          ? expenseFormValues.leaseBuybackDate
+          : null,
+      leaseItemName:
+        expenseFormValues.settlementMode === 'LEASE'
+          ? expenseFormValues.leaseItemName
+          : null,
       recurrenceRule: expenseFormValues.recurrenceRule,
       recurringExpenseLink: {
         ...(isCreateRecurrence
@@ -216,6 +229,19 @@ export async function updateExpense(
       categoryId: expenseFormValues.category,
       paidById: expenseFormValues.paidBy,
       splitMode: expenseFormValues.splitMode,
+      settlementMode: expenseFormValues.settlementMode,
+      leaseOwnerId:
+        expenseFormValues.settlementMode === 'LEASE'
+          ? expenseFormValues.leaseOwnerId
+          : null,
+      leaseBuybackDate:
+        expenseFormValues.settlementMode === 'LEASE'
+          ? expenseFormValues.leaseBuybackDate
+          : null,
+      leaseItemName:
+        expenseFormValues.settlementMode === 'LEASE'
+          ? expenseFormValues.leaseItemName
+          : null,
       recurrenceRule: expenseFormValues.recurrenceRule,
       paidFor: {
         create: expenseFormValues.paidFor
@@ -339,7 +365,12 @@ export async function getCategories() {
 
 export async function getGroupExpenses(
   groupId: string,
-  options?: { offset?: number; length?: number; filter?: string },
+  options?: {
+    offset?: number
+    length?: number
+    filter?: string
+    settlementMode?: string
+  },
 ) {
   await createRecurringExpenses()
 
@@ -359,6 +390,12 @@ export async function getGroupExpenses(
         },
       },
       splitMode: true,
+      settlementMode: true,
+      leaseOwnerId: true,
+      leaseBuybackDate: true,
+      leaseBuybackCompleted: true,
+      leaseItemName: true,
+      leaseOwner: { select: { id: true, name: true } },
       recurrenceRule: true,
       title: true,
       _count: { select: { documents: true } },
@@ -367,6 +404,9 @@ export async function getGroupExpenses(
       groupId,
       title: options?.filter
         ? { contains: options.filter, mode: 'insensitive' }
+        : undefined,
+      settlementMode: options?.settlementMode
+        ? (options.settlementMode as any)
         : undefined,
     },
     orderBy: [{ expenseDate: 'desc' }, { createdAt: 'desc' }],

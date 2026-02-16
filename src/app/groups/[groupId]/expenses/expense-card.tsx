@@ -2,6 +2,7 @@
 import { ActiveUserBalance } from '@/app/groups/[groupId]/expenses/active-user-balance'
 import { CategoryIcon } from '@/app/groups/[groupId]/expenses/category-icon'
 import { DocumentsCount } from '@/app/groups/[groupId]/expenses/documents-count'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { getGroupExpenses } from '@/lib/api'
 import { Currency } from '@/lib/currency'
@@ -76,8 +77,18 @@ export function ExpenseCard({
         className="w-4 h-4 mr-2 mt-0.5 text-muted-foreground"
       />
       <div className="flex-1">
-        <div className={cn('mb-1', expense.isReimbursement && 'italic')}>
+        <div className={cn('mb-1 flex items-center gap-1.5', expense.isReimbursement && 'italic')}>
           {expense.title}
+          {expense.settlementMode === 'STRAIGHT' && (
+            <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-200 dark:border-blue-800 text-[10px] px-1.5 py-0" variant="outline">
+              Straight
+            </Badge>
+          )}
+          {expense.settlementMode === 'LEASE' && (
+            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border-amber-200 dark:border-amber-800 text-[10px] px-1.5 py-0" variant="outline">
+              Lease
+            </Badge>
+          )}
         </div>
         <div className="text-xs text-muted-foreground">
           <Participants expense={expense} participantCount={participantCount} />
