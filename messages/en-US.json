@@ -24,6 +24,10 @@
     "exportJson": "Export to JSON",
     "exportCsv": "Export to CSV",
     "searchPlaceholder": "Search for an expense…",
+    "filterAll": "All",
+    "filterNormal": "Normal",
+    "filterStraight": "Straight",
+    "filterLease": "Lease",
     "ActiveUserModal": {
       "title": "Who are you?",
       "description": "Tell us which participant you are to let us customize how the information is displayed.",
@@ -253,7 +257,42 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "reimbursement": "Reimbursement"
+    "reimbursement": "Reimbursement",
+    "SettlementMode": {
+      "label": "Settlement mode",
+      "description": "Choose how this expense is settled.",
+      "normal": "Normal",
+      "normalDescription": "Net-settled with other expenses",
+      "straight": "Straight",
+      "straightDescription": "Individual paper trail, no netting",
+      "lease": "Lease",
+      "leaseDescription": "Shared purchase with buyback tracking"
+    },
+    "LeaseFields": {
+      "title": "Lease details",
+      "itemName": "Item name",
+      "itemNamePlaceholder": "e.g. Samsung TV",
+      "itemNameDescription": "Name of the shared item.",
+      "whoKeeps": "Who keeps it?",
+      "whoKeepsDescription": "The participant who will keep the item.",
+      "buybackDate": "Buyback date",
+      "buybackDateDescription": "Date by which the owner buys back shares."
+    },
+    "SubItems": {
+      "title": "Sub-items",
+      "addSubItem": "Add sub-item",
+      "itemTitle": "Item name",
+      "itemTitlePlaceholder": "e.g., Pretzels",
+      "amount": "Amount",
+      "remainder": "Remainder",
+      "remainderDescription": "Uses the parent expense split",
+      "totalExceeded": "Sub-items exceed the expense total",
+      "count": "{count} sub-items",
+      "splitMode": "Split mode",
+      "paidFor": "Split between",
+      "selectAll": "Select all",
+      "selectNone": "Select none"
+    }
   },
   "ExpenseDocumentsInput": {
     "TooBigToast": {
@@ -297,9 +336,41 @@
     "Reimbursements": {
       "title": "Suggested reimbursements",
       "description": "Here are suggestions for optimized reimbursements between participants.",
-      "noImbursements": "It looks like your group doesn’t need any reimbursement 😁",
+      "noImbursements": "It looks like your group doesn't need any reimbursement 😁",
       "owes": "<strong>{from}</strong> owes <strong>{to}</strong>",
       "markAsPaid": "Mark as paid"
+    },
+    "GrandTotal": {
+      "title": "Summary",
+      "totalOwed": "Total outstanding",
+      "note": "Excludes pending lease buybacks"
+    },
+    "Normal": {
+      "title": "Normal Balances",
+      "description": "Net-settled balances across all normal expenses."
+    },
+    "Straight": {
+      "title": "Straight Balances",
+      "description": "Individual expense-by-expense amounts owed (no netting).",
+      "noItems": "No straight-settle expenses yet.",
+      "owes": "<strong>{from}</strong> owes <strong>{to}</strong>",
+      "forExpense": "for {expense}",
+      "markAsPaid": "Mark as paid"
+    },
+    "Lease": {
+      "title": "Lease Items",
+      "description": "Shared purchases with buyback tracking.",
+      "noItems": "No lease items yet.",
+      "owner": "Kept by {owner}",
+      "totalCost": "Total cost",
+      "buybackDate": "Buyback by {date}",
+      "active": "Active",
+      "completed": "Completed",
+      "buybackBreakdown": "Buyback breakdown",
+      "owedTo": "owed to {name}",
+      "toggleBuyback": "Mark as bought back",
+      "toggleBuybackUndo": "Mark as not bought back",
+      "createReimbursement": "Create reimbursement"
     }
   },
   "Stats": {
@@ -365,7 +436,11 @@
     "paidForMin1": "The expense must be paid for at least one participant.",
     "noZeroShares": "All shares must be higher than 0.",
     "amountSum": "Sum of amounts must equal the expense amount.",
-    "percentageSum": "Sum of percentages must equal 100."
+    "percentageSum": "Sum of percentages must equal 100.",
+    "leaseOwnerRequired": "You must select who keeps the item.",
+    "leaseItemNameRequired": "Enter a name for the item (at least 2 characters).",
+    "leaseBuybackDateRequired": "Enter a buyback date.",
+    "subItemsTotalExceeded": "Sub-items exceed the expense total."
   },
   "Categories": {
     "search": "Search category...",

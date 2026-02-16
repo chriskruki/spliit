@@ -13,42 +13,119 @@ export type Reimbursement = {
   amount: number
 }
 
-export function getBalances(
-  expenses: NonNullable<Awaited<ReturnType<typeof getGroupExpenses>>>,
-): Balances {
+export type StraightBalanceItem = {
+  expenseId: string
+  expenseTitle: string
+  from: string
+  to: string
+  amount: number
+}
+
+export type LeaseItem = {
+  expenseId: string
+  itemName: string
+  totalCost: number
+  ownerId: string
+  buybackDate: Date | null
+  buybackCompleted: boolean
+  buybackBreakdown: Array<{ participantId: string; amount: number }>
+}
+
+export type SettlementBalances = {
+  normal: {
+    balances: Balances
+    reimbursements: Reimbursement[]
+    publicBalances: Balances
+  }
+  straight: StraightBalanceItem[]
+  lease: LeaseItem[]
+  totals: {
+    totalOwed: number
+    totalOwedToYou: number
+    net: number
+  }
+}
+
+type GroupExpenses = NonNullable<Awaited<ReturnType<typeof getGroupExpenses>>>
+
+type PaidForEntry = {
+  participant: { id: string; name: string }
+  shares: number
+}
+
+function distributeAmount(
+  amount: number,
+  splitMode: string,
+  paidFors: PaidForEntry[],
+): { participantId: string; amount: number }[] {
+  const totalPaidForShares = paidFors.reduce(
+    (sum, paidFor) => sum + paidFor.shares,
+    0,
+  )
+  let remaining = amount
+  return paidFors.map((paidFor, index) => {
+    const isLast = index === paidFors.length - 1
+    const [shares, totalShares] = match(splitMode)
+      .with('EVENLY', () => [1, paidFors.length])
+      .with('BY_SHARES', () => [paidFor.shares, totalPaidForShares])
+      .with('BY_PERCENTAGE', () => [paidFor.shares, totalPaidForShares])
+      .with('BY_AMOUNT', () => [paidFor.shares, totalPaidForShares])
+      .otherwise(() => [1, paidFors.length])
+    const dividedAmount = isLast
+      ? remaining
+      : (amount * shares) / totalShares
+    remaining -= dividedAmount
+    return { participantId: paidFor.participant.id, amount: dividedAmount }
+  })
+}
+
+export function getBalances(expenses: GroupExpenses): Balances {
   const balances: Balances = {}
 
   for (const expense of expenses) {
     const paidBy = expense.paidBy.id
-    const paidFors = expense.paidFor
 
     if (!balances[paidBy]) balances[paidBy] = { paid: 0, paidFor: 0, total: 0 }
     balances[paidBy].paid += expense.amount
 
-    const totalPaidForShares = paidFors.reduce(
-      (sum, paidFor) => sum + paidFor.shares,
-      0,
-    )
-    let remaining = expense.amount
-    paidFors.forEach((paidFor, index) => {
-      if (!balances[paidFor.participant.id])
-        balances[paidFor.participant.id] = { paid: 0, paidFor: 0, total: 0 }
+    const subItems = expense.subItems ?? []
+    const subItemTotal = subItems.reduce((sum, si) => sum + si.amount, 0)
+    const remainderAmount = expense.amount - subItemTotal
 
-      const isLast = index === paidFors.length - 1
+    // Distribute remainder using parent split
+    if (remainderAmount > 0) {
+      const shares = distributeAmount(
+        remainderAmount,
+        expense.splitMode,
+        expense.paidFor,
+      )
+      for (const share of shares) {
+        if (!balances[share.participantId])
+          balances[share.participantId] = { paid: 0, paidFor: 0, total: 0 }
+        balances[share.participantId].paidFor += share.amount
+      }
+    }
 
-      const [shares, totalShares] = match(expense.splitMode)
-        .with('EVENLY', () => [1, paidFors.length])
-        .with('BY_SHARES', () => [paidFor.shares, totalPaidForShares])
-        .with('BY_PERCENTAGE', () => [paidFor.shares, totalPaidForShares])
-        .with('BY_AMOUNT', () => [paidFor.shares, totalPaidForShares])
-        .exhaustive()
+    // Distribute each sub-item using its own split
+    for (const subItem of subItems) {
+      const shares = distributeAmount(
+        subItem.amount,
+        subItem.splitMode,
+        subItem.paidFor,
+      )
+      for (const share of shares) {
+        if (!balances[share.participantId])
+          balances[share.participantId] = { paid: 0, paidFor: 0, total: 0 }
+        balances[share.participantId].paidFor += share.amount
+      }
+    }
 
-      const dividedAmount = isLast
-        ? remaining
-        : (expense.amount * shares) / totalShares
-      remaining -= dividedAmount
-      balances[paidFor.participant.id].paidFor += dividedAmount
-    })
+    // If no sub-items, fall back to original behavior (full amount via parent split)
+    if (subItems.length === 0) {
+      // Already handled above since remainderAmount === expense.amount
+      // But we need to handle the edge case where remainderAmount is 0
+      // (which can't happen when subItems.length === 0)
+    }
   }
 
   // rounding and add total
@@ -129,4 +206,137 @@ export function getSuggestedReimbursements(
     }
   }
   return reimbursements.filter(({ amount }) => Math.round(amount) + 0 !== 0)
+}
+
+function computeParticipantShares(expense: GroupExpenses[number]) {
+  const subItems = expense.subItems ?? []
+  const subItemTotal = subItems.reduce((sum, si) => sum + si.amount, 0)
+  const remainderAmount = expense.amount - subItemTotal
+
+  const shareMap: Record<string, number> = {}
+
+  // Remainder uses parent split
+  if (remainderAmount > 0) {
+    const shares = distributeAmount(
+      remainderAmount,
+      expense.splitMode,
+      expense.paidFor,
+    )
+    for (const s of shares) {
+      shareMap[s.participantId] = (shareMap[s.participantId] ?? 0) + s.amount
+    }
+  }
+
+  // Each sub-item uses its own split
+  for (const subItem of subItems) {
+    const shares = distributeAmount(
+      subItem.amount,
+      subItem.splitMode,
+      subItem.paidFor,
+    )
+    for (const s of shares) {
+      shareMap[s.participantId] = (shareMap[s.participantId] ?? 0) + s.amount
+    }
+  }
+
+  return Object.entries(shareMap).map(([participantId, amount]) => ({
+    participantId,
+    amount: Math.round(amount),
+  }))
+}
+
+function getStraightBalanceItems(
+  expenses: GroupExpenses,
+): StraightBalanceItem[] {
+  const items: StraightBalanceItem[] = []
+  for (const expense of expenses) {
+    const shares = computeParticipantShares(expense)
+    for (const share of shares) {
+      if (share.participantId !== expense.paidBy.id && share.amount !== 0) {
+        items.push({
+          expenseId: expense.id,
+          expenseTitle: expense.title,
+          from: share.participantId,
+          to: expense.paidBy.id,
+          amount: share.amount,
+        })
+      }
+    }
+  }
+  return items
+}
+
+function getLeaseItems(expenses: GroupExpenses): LeaseItem[] {
+  return expenses.map((expense) => {
+    const ownerId = expense.leaseOwnerId ?? expense.paidBy.id
+    const shares = computeParticipantShares(expense)
+    const buybackBreakdown = shares
+      .filter((s) => s.participantId !== ownerId && s.amount !== 0)
+      .map((s) => ({ participantId: s.participantId, amount: s.amount }))
+
+    return {
+      expenseId: expense.id,
+      itemName: expense.leaseItemName ?? expense.title,
+      totalCost: expense.amount,
+      ownerId,
+      buybackDate: expense.leaseBuybackDate,
+      buybackCompleted: expense.leaseBuybackCompleted,
+      buybackBreakdown,
+    }
+  })
+}
+
+export function getSettlementBalances(
+  expenses: GroupExpenses,
+): SettlementBalances {
+  const normalExpenses: GroupExpenses = []
+  const straightExpenses: GroupExpenses = []
+  const leaseExpenses: GroupExpenses = []
+
+  for (const expense of expenses) {
+    const mode = expense.settlementMode ?? 'NORMAL'
+    if (mode === 'STRAIGHT') {
+      straightExpenses.push(expense)
+    } else if (mode === 'LEASE') {
+      leaseExpenses.push(expense)
+    } else {
+      normalExpenses.push(expense)
+    }
+  }
+
+  const balances = getBalances(normalExpenses)
+  const reimbursements = getSuggestedReimbursements(balances)
+  const publicBalances = getPublicBalances(reimbursements)
+
+  const straightItems = getStraightBalanceItems(straightExpenses)
+  const leaseItems = getLeaseItems(leaseExpenses)
+
+  // Compute grand totals
+  let totalOwed = 0
+  let totalOwedToYou = 0
+
+  for (const r of reimbursements) {
+    totalOwed += r.amount
+  }
+  for (const item of straightItems) {
+    totalOwed += item.amount
+  }
+  for (const item of leaseItems) {
+    if (!item.buybackCompleted) {
+      for (const b of item.buybackBreakdown) {
+        totalOwed += b.amount
+      }
+    }
+  }
+
+  return {
+    normal: { balances, reimbursements, publicBalances },
+    straight: straightItems,
+    lease: leaseItems,
+    totals: {
+      totalOwed,
+      totalOwedToYou,
+      net: totalOwed - totalOwedToYou,
+    },
+  }
 }

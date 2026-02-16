@@ -30,6 +30,8 @@ model Participant {
   groupId         String
   expensesPaidBy  Expense[]
   expensesPaidFor ExpensePaidFor[]
+  leaseExpenses   Expense[] @relation("LeaseOwner")
+  subItemsPaidFor SubItemPaidFor[]
 }
 
 model Category {
@@ -56,9 +58,16 @@ model Expense {
   groupId          String
   isReimbursement  Boolean           @default(false)
   splitMode        SplitMode         @default(EVENLY)
+  settlementMode        SettlementMode @default(NORMAL)
+  leaseOwnerId          String?
+  leaseOwner            Participant?   @relation("LeaseOwner", fields: [leaseOwnerId], references: [id])
+  leaseBuybackDate      DateTime?      @db.Date
+  leaseBuybackCompleted Boolean        @default(false)
+  leaseItemName         String?
   createdAt        DateTime          @default(now())
   documents        ExpenseDocument[]
   notes            String?
+  subItems         ExpenseSubItem[]
 
   recurrenceRule         RecurrenceRule?       @default(NONE)
   recurringExpenseLink   RecurringExpenseLink?
@@ -79,6 +88,12 @@ enum SplitMode {
   BY_SHARES
   BY_PERCENTAGE
   BY_AMOUNT
+}
+
+enum SettlementMode {
+  NORMAL
+  STRAIGHT
+  LEASE
 }
 
 model RecurringExpenseLink {
@@ -112,6 +127,27 @@ model ExpensePaidFor {
   shares        Int         @default(1)
 
   @@id([expenseId, participantId])
+}
+
+model ExpenseSubItem {
+  id        String           @id @default(cuid())
+  expenseId String
+  expense   Expense          @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  title     String
+  amount    Int
+  splitMode SplitMode        @default(EVENLY)
+  paidFor   SubItemPaidFor[]
+  createdAt DateTime         @default(now())
+}
+
+model SubItemPaidFor {
+  subItemId     String
+  subItem       ExpenseSubItem @relation(fields: [subItemId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant    @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  shares        Int            @default(1)
+
+  @@id([subItemId, participantId])
 }
 
 model Activity {

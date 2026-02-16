@@ -1,7 +1,10 @@
 'use client'
 
 import { BalancesList } from '@/app/groups/[groupId]/balances-list'
+import { GrandTotalSummary } from '@/app/groups/[groupId]/grand-total-summary'
+import { LeaseItemsList } from '@/app/groups/[groupId]/lease-items-list'
 import { ReimbursementList } from '@/app/groups/[groupId]/reimbursement-list'
+import { StraightBalancesList } from '@/app/groups/[groupId]/straight-balances-list'
 import {
   Card,
   CardContent,
@@ -9,11 +12,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getCurrencyFromGroup } from '@/lib/utils'
 import { trpc } from '@/trpc/client'
+import { ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Fragment, useEffect } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { match } from 'ts-pattern'
 import { useCurrentGroup } from '../current-group-context'
 
@@ -27,53 +36,165 @@ export default function BalancesAndReimbursements() {
   const t = useTranslations('Balances')
 
   useEffect(() => {
-    // Until we use tRPC more widely and can invalidate the cache on expense
-    // update, it's easier and safer to invalidate the cache on page load.
     utils.groups.balances.invalidate()
   }, [utils])
 
   const isLoading = balancesAreLoading || !balancesData || !group
 
+  const hasNormal =
+    !isLoading &&
+    (Object.keys(balancesData.balances).length > 0 ||
+      balancesData.reimbursements.length > 0)
+  const hasStraight = !isLoading && balancesData.straight.length > 0
+  const hasLease = !isLoading && balancesData.lease.length > 0
+
   return (
     <>
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>{t('title')}</CardTitle>
-          <CardDescription>{t('description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <BalancesLoading participantCount={group?.participants.length} />
-          ) : (
+      {/* Grand Total Summary */}
+      {!isLoading && (hasStraight || hasLease) && (
+        <GrandTotalSummary
+          totals={balancesData.totals}
+          currency={getCurrencyFromGroup(group)}
+        />
+      )}
+
+      {/* Normal Balances - Green */}
+      <CollapsibleSection
+        title={hasNormal || hasStraight || hasLease ? t('Normal.title') : t('title')}
+        description={
+          hasNormal || hasStraight || hasLease
+            ? t('Normal.description')
+            : t('description')
+        }
+        borderColor="border-l-green-500"
+        showBorder={hasNormal || hasStraight || hasLease}
+        defaultOpen={true}
+      >
+        {isLoading ? (
+          <>
+            <BalancesLoading
+              participantCount={group?.participants.length}
+            />
+            <ReimbursementsLoading
+              participantCount={group?.participants.length}
+            />
+          </>
+        ) : (
+          <>
             <BalancesList
               balances={balancesData.balances}
-              participants={group?.participants}
+              participants={group.participants}
               currency={getCurrencyFromGroup(group)}
             />
-          )}
-        </CardContent>
-      </Card>
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>{t('Reimbursements.title')}</CardTitle>
-          <CardDescription>{t('Reimbursements.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold mb-2">
+                {t('Reimbursements.title')}
+              </h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                {t('Reimbursements.description')}
+              </p>
+              <ReimbursementList
+                reimbursements={balancesData.reimbursements}
+                participants={group.participants}
+                currency={getCurrencyFromGroup(group)}
+                groupId={groupId}
+              />
+            </div>
+          </>
+        )}
+      </CollapsibleSection>
+
+      {/* Straight Balances - Blue */}
+      {(hasStraight || isLoading) && (
+        <CollapsibleSection
+          title={t('Straight.title')}
+          description={t('Straight.description')}
+          borderColor="border-l-blue-500"
+          showBorder={true}
+          defaultOpen={hasStraight}
+        >
           {isLoading ? (
             <ReimbursementsLoading
               participantCount={group?.participants.length}
             />
           ) : (
-            <ReimbursementList
-              reimbursements={balancesData.reimbursements}
-              participants={group?.participants}
+            <StraightBalancesList
+              items={balancesData.straight}
+              participants={group.participants}
               currency={getCurrencyFromGroup(group)}
               groupId={groupId}
             />
           )}
-        </CardContent>
-      </Card>
+        </CollapsibleSection>
+      )}
+
+      {/* Lease Items - Amber */}
+      {(hasLease || isLoading) && (
+        <CollapsibleSection
+          title={t('Lease.title')}
+          description={t('Lease.description')}
+          borderColor="border-l-amber-500"
+          showBorder={true}
+          defaultOpen={hasLease}
+        >
+          {isLoading ? (
+            <ReimbursementsLoading
+              participantCount={group?.participants.length}
+            />
+          ) : (
+            <LeaseItemsList
+              items={balancesData.lease}
+              participants={group.participants}
+              currency={getCurrencyFromGroup(group)}
+              groupId={groupId}
+            />
+          )}
+        </CollapsibleSection>
+      )}
     </>
+  )
+}
+
+function CollapsibleSection({
+  title,
+  description,
+  borderColor,
+  showBorder,
+  defaultOpen,
+  children,
+}: {
+  title: string
+  description: string
+  borderColor: string
+  showBorder: boolean
+  defaultOpen: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <Card className={`mb-4 ${showBorder ? `border-l-4 ${borderColor}` : ''}`}>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer select-none">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${
+                  open ? 'rotate-180' : ''
+                }`}
+              />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent>{children}</CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   )
 }
 

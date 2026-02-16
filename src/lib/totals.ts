@@ -25,16 +25,17 @@ export function getTotalActiveUserPaidFor(
 
 type Expense = NonNullable<Awaited<ReturnType<typeof getGroupExpenses>>>[number]
 
-export function calculateShare(
-  participantId: string | null,
-  expense: Pick<
-    Expense,
-    'amount' | 'paidFor' | 'splitMode' | 'isReimbursement'
-  >,
-): number {
-  if (expense.isReimbursement) return 0
+type PaidForEntry = {
+  participant: { id: string; name: string }
+  shares: number
+}
 
-  const paidFors = expense.paidFor
+function calculateShareForSplit(
+  participantId: string | null,
+  amount: number,
+  splitMode: string,
+  paidFors: PaidForEntry[],
+): number {
   const userPaidFor = paidFors.find(
     (paidFor) => paidFor.participant.id === participantId,
   )
@@ -43,26 +44,67 @@ export function calculateShare(
 
   const shares = Number(userPaidFor.shares)
 
-  switch (expense.splitMode) {
+  switch (splitMode) {
     case 'EVENLY':
-      // Divide the total expense evenly among all participants
-      return expense.amount / paidFors.length
+      return amount / paidFors.length
     case 'BY_AMOUNT':
-      // Directly add the user's share if the split mode is BY_AMOUNT
       return shares
     case 'BY_PERCENTAGE':
-      // Calculate the user's share based on their percentage of the total expense
-      return (expense.amount * shares) / 10000 // Assuming shares are out of 10000 for percentage
-    case 'BY_SHARES':
-      // Calculate the user's share based on their shares relative to the total shares
+      return (amount * shares) / 10000
+    case 'BY_SHARES': {
       const totalShares = paidFors.reduce(
         (sum, paidFor) => sum + Number(paidFor.shares),
         0,
       )
-      return (expense.amount * shares) / totalShares
+      return (amount * shares) / totalShares
+    }
     default:
       return 0
   }
+}
+
+export function calculateShare(
+  participantId: string | null,
+  expense: Pick<
+    Expense,
+    'amount' | 'paidFor' | 'splitMode' | 'isReimbursement'
+  > & {
+    subItems?: Array<{
+      amount: number
+      splitMode: string
+      paidFor: PaidForEntry[]
+    }>
+  },
+): number {
+  if (expense.isReimbursement) return 0
+
+  const subItems = expense.subItems ?? []
+  const subItemTotal = subItems.reduce((sum, si) => sum + si.amount, 0)
+  const remainderAmount = expense.amount - subItemTotal
+
+  let total = 0
+
+  // Remainder uses parent split
+  if (remainderAmount > 0) {
+    total += calculateShareForSplit(
+      participantId,
+      remainderAmount,
+      expense.splitMode,
+      expense.paidFor as PaidForEntry[],
+    )
+  }
+
+  // Each sub-item uses its own split
+  for (const subItem of subItems) {
+    total += calculateShareForSplit(
+      participantId,
+      subItem.amount,
+      subItem.splitMode,
+      subItem.paidFor,
+    )
+  }
+
+  return total
 }
 
 export function getTotalActiveUserShare(
