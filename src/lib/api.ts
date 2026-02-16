@@ -106,6 +106,22 @@ export async function createExpense(
           })),
         },
       },
+      subItems: {
+        create: expenseFormValues.subItems.map((subItem) => ({
+          id: randomId(),
+          title: subItem.title,
+          amount: subItem.amount,
+          splitMode: subItem.splitMode,
+          paidFor: {
+            createMany: {
+              data: subItem.paidFor.map((pf) => ({
+                participantId: pf.participant,
+                shares: pf.shares,
+              })),
+            },
+          },
+        })),
+      },
       isReimbursement: expenseFormValues.isReimbursement,
       documents: {
         createMany: {
@@ -216,6 +232,71 @@ export async function updateExpense(
     expenseFormValues.recurrenceRule as RecurrenceRule,
     existingExpense.expenseDate,
   )
+
+  // Handle sub-items CRUD separately in a transaction
+  const existingSubItems = await prisma.expenseSubItem.findMany({
+    where: { expenseId },
+    include: { paidFor: true },
+  })
+
+  const newSubItemIds = new Set(
+    expenseFormValues.subItems.filter((si) => si.id).map((si) => si.id!),
+  )
+
+  // Delete removed sub-items
+  const subItemsToDelete = existingSubItems.filter(
+    (si) => !newSubItemIds.has(si.id),
+  )
+  if (subItemsToDelete.length > 0) {
+    await prisma.expenseSubItem.deleteMany({
+      where: { id: { in: subItemsToDelete.map((si) => si.id) } },
+    })
+  }
+
+  // Update existing sub-items
+  for (const subItem of expenseFormValues.subItems.filter((si) => si.id)) {
+    const existing = existingSubItems.find((e) => e.id === subItem.id)
+    if (!existing) continue
+
+    await prisma.expenseSubItem.update({
+      where: { id: subItem.id! },
+      data: {
+        title: subItem.title,
+        amount: subItem.amount,
+        splitMode: subItem.splitMode,
+        paidFor: {
+          deleteMany: {},
+          createMany: {
+            data: subItem.paidFor.map((pf) => ({
+              participantId: pf.participant,
+              shares: pf.shares,
+            })),
+          },
+        },
+      },
+    })
+  }
+
+  // Create new sub-items
+  for (const subItem of expenseFormValues.subItems.filter((si) => !si.id)) {
+    await prisma.expenseSubItem.create({
+      data: {
+        id: randomId(),
+        expenseId,
+        title: subItem.title,
+        amount: subItem.amount,
+        splitMode: subItem.splitMode,
+        paidFor: {
+          createMany: {
+            data: subItem.paidFor.map((pf) => ({
+              participantId: pf.participant,
+              shares: pf.shares,
+            })),
+          },
+        },
+      },
+    })
+  }
 
   return prisma.expense.update({
     where: { id: expenseId },
@@ -399,6 +480,20 @@ export async function getGroupExpenses(
       recurrenceRule: true,
       title: true,
       _count: { select: { documents: true } },
+      subItems: {
+        select: {
+          id: true,
+          title: true,
+          amount: true,
+          splitMode: true,
+          paidFor: {
+            select: {
+              participant: { select: { id: true, name: true } },
+              shares: true,
+            },
+          },
+        },
+      },
     },
     where: {
       groupId,
@@ -428,6 +523,9 @@ export async function getExpense(groupId: string, expenseId: string) {
       category: true,
       documents: true,
       recurringExpenseLink: true,
+      subItems: {
+        include: { paidFor: { include: { participant: true } } },
+      },
     },
   })
 }

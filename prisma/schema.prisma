@@ -31,6 +31,7 @@ model Participant {
   expensesPaidBy  Expense[]
   expensesPaidFor ExpensePaidFor[]
   leaseExpenses   Expense[] @relation("LeaseOwner")
+  subItemsPaidFor SubItemPaidFor[]
 }
 
 model Category {
@@ -66,6 +67,7 @@ model Expense {
   createdAt        DateTime          @default(now())
   documents        ExpenseDocument[]
   notes            String?
+  subItems         ExpenseSubItem[]
 
   recurrenceRule         RecurrenceRule?       @default(NONE)
   recurringExpenseLink   RecurringExpenseLink?
@@ -125,6 +127,27 @@ model ExpensePaidFor {
   shares        Int         @default(1)
 
   @@id([expenseId, participantId])
+}
+
+model ExpenseSubItem {
+  id        String           @id @default(cuid())
+  expenseId String
+  expense   Expense          @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  title     String
+  amount    Int
+  splitMode SplitMode        @default(EVENLY)
+  paidFor   SubItemPaidFor[]
+  createdAt DateTime         @default(now())
+}
+
+model SubItemPaidFor {
+  subItemId     String
+  subItem       ExpenseSubItem @relation(fields: [subItemId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant    @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  shares        Int            @default(1)
+
+  @@id([subItemId, participantId])
 }
 
 model Activity {

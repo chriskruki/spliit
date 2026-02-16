@@ -1,4 +1,4 @@
-.PHONY: db db-stop db-destroy build start setup clean help
+.PHONY: db db-stop db-destroy build start local setup clean help
 
 COMPOSE := docker compose --env-file container.env
 
@@ -26,6 +26,9 @@ build: ## Build the Next.js production bundle
 
 start: db ## Start the production server (starts db if needed)
 	npm run start
+
+local: db ## Start the dev server with hot reload (starts db if needed)
+	npm run dev
 
 clean: ## Remove build artifacts
 	rm -rf .next

@@ -48,40 +48,84 @@ export type SettlementBalances = {
 
 type GroupExpenses = NonNullable<Awaited<ReturnType<typeof getGroupExpenses>>>
 
+type PaidForEntry = {
+  participant: { id: string; name: string }
+  shares: number
+}
+
+function distributeAmount(
+  amount: number,
+  splitMode: string,
+  paidFors: PaidForEntry[],
+): { participantId: string; amount: number }[] {
+  const totalPaidForShares = paidFors.reduce(
+    (sum, paidFor) => sum + paidFor.shares,
+    0,
+  )
+  let remaining = amount
+  return paidFors.map((paidFor, index) => {
+    const isLast = index === paidFors.length - 1
+    const [shares, totalShares] = match(splitMode)
+      .with('EVENLY', () => [1, paidFors.length])
+      .with('BY_SHARES', () => [paidFor.shares, totalPaidForShares])
+      .with('BY_PERCENTAGE', () => [paidFor.shares, totalPaidForShares])
+      .with('BY_AMOUNT', () => [paidFor.shares, totalPaidForShares])
+      .otherwise(() => [1, paidFors.length])
+    const dividedAmount = isLast
+      ? remaining
+      : (amount * shares) / totalShares
+    remaining -= dividedAmount
+    return { participantId: paidFor.participant.id, amount: dividedAmount }
+  })
+}
+
 export function getBalances(expenses: GroupExpenses): Balances {
   const balances: Balances = {}
 
   for (const expense of expenses) {
     const paidBy = expense.paidBy.id
-    const paidFors = expense.paidFor
 
     if (!balances[paidBy]) balances[paidBy] = { paid: 0, paidFor: 0, total: 0 }
     balances[paidBy].paid += expense.amount
 
-    const totalPaidForShares = paidFors.reduce(
-      (sum, paidFor) => sum + paidFor.shares,
-      0,
-    )
-    let remaining = expense.amount
-    paidFors.forEach((paidFor, index) => {
-      if (!balances[paidFor.participant.id])
-        balances[paidFor.participant.id] = { paid: 0, paidFor: 0, total: 0 }
+    const subItems = expense.subItems ?? []
+    const subItemTotal = subItems.reduce((sum, si) => sum + si.amount, 0)
+    const remainderAmount = expense.amount - subItemTotal
 
-      const isLast = index === paidFors.length - 1
+    // Distribute remainder using parent split
+    if (remainderAmount > 0) {
+      const shares = distributeAmount(
+        remainderAmount,
+        expense.splitMode,
+        expense.paidFor,
+      )
+      for (const share of shares) {
+        if (!balances[share.participantId])
+          balances[share.participantId] = { paid: 0, paidFor: 0, total: 0 }
+        balances[share.participantId].paidFor += share.amount
+      }
+    }
 
-      const [shares, totalShares] = match(expense.splitMode)
-        .with('EVENLY', () => [1, paidFors.length])
-        .with('BY_SHARES', () => [paidFor.shares, totalPaidForShares])
-        .with('BY_PERCENTAGE', () => [paidFor.shares, totalPaidForShares])
-        .with('BY_AMOUNT', () => [paidFor.shares, totalPaidForShares])
-        .exhaustive()
+    // Distribute each sub-item using its own split
+    for (const subItem of subItems) {
+      const shares = distributeAmount(
+        subItem.amount,
+        subItem.splitMode,
+        subItem.paidFor,
+      )
+      for (const share of shares) {
+        if (!balances[share.participantId])
+          balances[share.participantId] = { paid: 0, paidFor: 0, total: 0 }
+        balances[share.participantId].paidFor += share.amount
+      }
+    }
 
-      const dividedAmount = isLast
-        ? remaining
-        : (expense.amount * shares) / totalShares
-      remaining -= dividedAmount
-      balances[paidFor.participant.id].paidFor += dividedAmount
-    })
+    // If no sub-items, fall back to original behavior (full amount via parent split)
+    if (subItems.length === 0) {
+      // Already handled above since remainderAmount === expense.amount
+      // But we need to handle the edge case where remainderAmount is 0
+      // (which can't happen when subItems.length === 0)
+    }
   }
 
   // rounding and add total
@@ -165,26 +209,40 @@ export function getSuggestedReimbursements(
 }
 
 function computeParticipantShares(expense: GroupExpenses[number]) {
-  const paidFors = expense.paidFor
-  const totalPaidForShares = paidFors.reduce(
-    (sum, paidFor) => sum + paidFor.shares,
-    0,
-  )
-  let remaining = expense.amount
-  return paidFors.map((paidFor, index) => {
-    const isLast = index === paidFors.length - 1
-    const [shares, totalShares] = match(expense.splitMode)
-      .with('EVENLY', () => [1, paidFors.length])
-      .with('BY_SHARES', () => [paidFor.shares, totalPaidForShares])
-      .with('BY_PERCENTAGE', () => [paidFor.shares, totalPaidForShares])
-      .with('BY_AMOUNT', () => [paidFor.shares, totalPaidForShares])
-      .exhaustive()
-    const amount = isLast
-      ? remaining
-      : (expense.amount * shares) / totalShares
-    remaining -= amount
-    return { participantId: paidFor.participant.id, amount: Math.round(amount) }
-  })
+  const subItems = expense.subItems ?? []
+  const subItemTotal = subItems.reduce((sum, si) => sum + si.amount, 0)
+  const remainderAmount = expense.amount - subItemTotal
+
+  const shareMap: Record<string, number> = {}
+
+  // Remainder uses parent split
+  if (remainderAmount > 0) {
+    const shares = distributeAmount(
+      remainderAmount,
+      expense.splitMode,
+      expense.paidFor,
+    )
+    for (const s of shares) {
+      shareMap[s.participantId] = (shareMap[s.participantId] ?? 0) + s.amount
+    }
+  }
+
+  // Each sub-item uses its own split
+  for (const subItem of subItems) {
+    const shares = distributeAmount(
+      subItem.amount,
+      subItem.splitMode,
+      subItem.paidFor,
+    )
+    for (const s of shares) {
+      shareMap[s.participantId] = (shareMap[s.participantId] ?? 0) + s.amount
+    }
+  }
+
+  return Object.entries(shareMap).map(([participantId, amount]) => ({
+    participantId,
+    amount: Math.round(amount),
+  }))
 }
 
 function getStraightBalanceItems(

@@ -149,6 +149,51 @@ export const expenseFormSchema = z
     leaseItemName: z.string().optional(),
     leaseOwnerId: z.string().optional(),
     leaseBuybackDate: z.coerce.date().optional(),
+    subItems: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          title: z.string().min(1, 'titleRequired'),
+          amount: z.union([
+            z.number(),
+            z.string().transform((value, ctx) => {
+              const valueAsNumber = Number(value)
+              if (Number.isNaN(valueAsNumber))
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: 'invalidNumber',
+                })
+              return valueAsNumber
+            }),
+          ]),
+          splitMode: z
+            .enum<SplitMode, [SplitMode, ...SplitMode[]]>(
+              Object.values(SplitMode) as any,
+            )
+            .default('EVENLY'),
+          paidFor: z
+            .array(
+              z.object({
+                participant: z.string(),
+                shares: z.union([
+                  z.number(),
+                  z.string().transform((value, ctx) => {
+                    const normalizedValue = value.replace(/,/g, '.')
+                    const valueAsNumber = Number(normalizedValue)
+                    if (Number.isNaN(valueAsNumber))
+                      ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        message: 'invalidNumber',
+                      })
+                    return value
+                  }),
+                ]),
+              }),
+            )
+            .min(1, 'paidForMin1'),
+        }),
+      )
+      .default([]),
   })
   .superRefine((expense, ctx) => {
     if (expense.settlementMode === 'LEASE') {
@@ -221,26 +266,80 @@ export const expenseFormSchema = z
         break
       }
     }
+
+    // Sub-item validation
+    if (expense.subItems && expense.subItems.length > 0) {
+      const subItemTotal = expense.subItems.reduce(
+        (sum, si) => new Decimal(si.amount).add(sum),
+        new Decimal(0),
+      )
+      if (subItemTotal.greaterThan(new Decimal(expense.amount))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'subItemsTotalExceeded',
+          path: ['subItems'],
+        })
+      }
+
+      expense.subItems.forEach((subItem, i) => {
+        switch (subItem.splitMode) {
+          case 'BY_AMOUNT': {
+            const sum = subItem.paidFor.reduce(
+              (sum, { shares }) => new Decimal(shares).add(sum),
+              new Decimal(0),
+            )
+            if (!sum.equals(new Decimal(subItem.amount))) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'amountSum',
+                path: ['subItems', i, 'paidFor'],
+              })
+            }
+            break
+          }
+          case 'BY_PERCENTAGE': {
+            const sum = subItem.paidFor.reduce(
+              (sum, { shares }) =>
+                sum +
+                (typeof shares === 'string'
+                  ? Math.round(Number(shares) * 100)
+                  : Number(shares)),
+              0,
+            )
+            if (sum !== 10000) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'percentageSum',
+                path: ['subItems', i, 'paidFor'],
+              })
+            }
+            break
+          }
+        }
+      })
+    }
   })
   .transform((expense) => {
     // Format the share split as a number (if from form submission)
+    const transformPaidFor = (
+      paidFor: typeof expense.paidFor,
+      splitMode: typeof expense.splitMode,
+    ) =>
+      paidFor.map((pf) => {
+        const shares = pf.shares
+        if (typeof shares === 'string' && splitMode !== 'BY_AMOUNT') {
+          return { ...pf, shares: Math.round(Number(shares) * 100) }
+        }
+        return { ...pf, shares: Number(shares) }
+      })
+
     return {
       ...expense,
-      paidFor: expense.paidFor.map((paidFor) => {
-        const shares = paidFor.shares
-        if (typeof shares === 'string' && expense.splitMode !== 'BY_AMOUNT') {
-          // For splitting not by amount, preserve the previous behaviour of multiplying the share by 100
-          return {
-            ...paidFor,
-            shares: Math.round(Number(shares) * 100),
-          }
-        }
-        // Otherwise, no need as the number will have been formatted according to currency.
-        return {
-          ...paidFor,
-          shares: Number(shares),
-        }
-      }),
+      paidFor: transformPaidFor(expense.paidFor, expense.splitMode),
+      subItems: expense.subItems.map((subItem) => ({
+        ...subItem,
+        paidFor: transformPaidFor(subItem.paidFor, subItem.splitMode),
+      })),
     }
   })
 

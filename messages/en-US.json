@@ -277,6 +277,21 @@
       "whoKeepsDescription": "The participant who will keep the item.",
       "buybackDate": "Buyback date",
       "buybackDateDescription": "Date by which the owner buys back shares."
+    },
+    "SubItems": {
+      "title": "Sub-items",
+      "addSubItem": "Add sub-item",
+      "itemTitle": "Item name",
+      "itemTitlePlaceholder": "e.g., Pretzels",
+      "amount": "Amount",
+      "remainder": "Remainder",
+      "remainderDescription": "Uses the parent expense split",
+      "totalExceeded": "Sub-items exceed the expense total",
+      "count": "{count} sub-items",
+      "splitMode": "Split mode",
+      "paidFor": "Split between",
+      "selectAll": "Select all",
+      "selectNone": "Select none"
     }
   },
   "ExpenseDocumentsInput": {
@@ -424,7 +439,8 @@
     "percentageSum": "Sum of percentages must equal 100.",
     "leaseOwnerRequired": "You must select who keeps the item.",
     "leaseItemNameRequired": "Enter a name for the item (at least 2 characters).",
-    "leaseBuybackDateRequired": "Enter a buyback date."
+    "leaseBuybackDateRequired": "Enter a buyback date.",
+    "subItemsTotalExceeded": "Sub-items exceed the expense total."
   },
   "Categories": {
     "search": "Search category...",

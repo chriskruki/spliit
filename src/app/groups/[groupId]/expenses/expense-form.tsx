@@ -55,12 +55,12 @@ import { AppRouterOutput } from '@/trpc/routers/_app'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { RecurrenceRule, SettlementMode } from '@prisma/client'
-import { ChevronRight, Save } from 'lucide-react'
+import { ChevronRight, Plus, Save, Trash2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useFieldArray, useForm } from 'react-hook-form'
 import { match } from 'ts-pattern'
 import { DeletePopup } from '../../../../components/delete-popup'
 import { extractCategoryFromTitle } from '../../../../components/expense-form-actions'
@@ -212,6 +212,18 @@ export function ExpenseForm({
           leaseItemName: expense.leaseItemName ?? undefined,
           leaseOwnerId: expense.leaseOwnerId ?? undefined,
           leaseBuybackDate: expense.leaseBuybackDate ?? undefined,
+          subItems: (expense.subItems ?? []).map((si: any) => ({
+            id: si.id,
+            title: si.title,
+            amount: amountAsDecimal(si.amount, groupCurrency),
+            splitMode: si.splitMode,
+            paidFor: si.paidFor.map((pf: any) => ({
+              participant: pf.participantId ?? pf.participant?.id,
+              shares: (si.splitMode === 'BY_AMOUNT'
+                ? amountAsDecimal(pf.shares, groupCurrency)
+                : (pf.shares / 100).toString()) as any,
+            })),
+          })),
         }
       : searchParams.get('reimbursement')
       ? {
@@ -241,6 +253,7 @@ export function ExpenseForm({
           notes: '',
           recurrenceRule: RecurrenceRule.NONE,
           settlementMode: 'NORMAL' as SettlementMode,
+          subItems: [],
         }
       : {
           title: searchParams.get('title') ?? '',
@@ -273,7 +286,13 @@ export function ExpenseForm({
           notes: '',
           recurrenceRule: RecurrenceRule.NONE,
           settlementMode: 'NORMAL' as SettlementMode,
+          subItems: [],
         },
+  })
+  const subItemsFieldArray = useFieldArray({
+    control: form.control,
+    name: 'subItems' as any,
+    keyName: 'key',
   })
   const [isCategoryLoading, setCategoryLoading] = useState(false)
   const activeUserId = useActiveUser(group.id)
@@ -289,6 +308,19 @@ export function ExpenseForm({
         values.splitMode === 'BY_AMOUNT'
           ? amountAsMinorUnits(shares, groupCurrency)
           : shares,
+    }))
+
+    // Convert sub-item amounts to minor units
+    values.subItems = values.subItems.map((subItem) => ({
+      ...subItem,
+      amount: amountAsMinorUnits(subItem.amount, groupCurrency),
+      paidFor: subItem.paidFor.map(({ participant, shares }) => ({
+        participant,
+        shares:
+          subItem.splitMode === 'BY_AMOUNT'
+            ? amountAsMinorUnits(shares, groupCurrency)
+            : shares,
+      })),
     }))
 
     // Currency should be blank if same as group currency
@@ -1413,6 +1445,339 @@ export function ExpenseForm({
               </CollapsibleContent>
             </Collapsible>
           </CardContent>
+        </Card>
+
+        {/* Sub-items section */}
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex justify-between">
+              <span>
+                {t('SubItems.title')}
+                {subItemsFieldArray.fields.length > 0 && (
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    ({subItemsFieldArray.fields.length})
+                  </span>
+                )}
+              </span>
+              <Button
+                variant="link"
+                type="button"
+                className="-my-2 -mx-4"
+                onClick={() => {
+                  subItemsFieldArray.append({
+                    title: '',
+                    amount: 0,
+                    splitMode: 'EVENLY',
+                    paidFor: group.participants.map((p) => ({
+                      participant: p.id,
+                      shares: '1' as any,
+                    })),
+                  } as any)
+                }}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                {t('SubItems.addSubItem')}
+              </Button>
+            </CardTitle>
+            {subItemsFieldArray.fields.length > 0 && (
+              <CardDescription>
+                {(() => {
+                  const subItemTotal = (form.watch('subItems') ?? []).reduce(
+                    (sum: number, si: any) => sum + (Number(si.amount) || 0),
+                    0,
+                  )
+                  const parentAmount = Number(form.watch('amount')) || 0
+                  const remainder = parentAmount - subItemTotal
+                  return `${t('SubItems.remainder')}: ${formatCurrency(
+                    groupCurrency,
+                    amountAsMinorUnits(Math.max(0, remainder), groupCurrency),
+                    locale,
+                  )} — ${t('SubItems.remainderDescription')}`
+                })()}
+              </CardDescription>
+            )}
+          </CardHeader>
+          {subItemsFieldArray.fields.length > 0 && (
+            <CardContent className="space-y-4">
+              {subItemsFieldArray.fields.map((field, index) => (
+                <div
+                  key={(field as any).key}
+                  className="border rounded-lg p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 grid sm:grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name={`subItems.${index}.title` as any}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('SubItems.itemTitle')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={t(
+                                  'SubItems.itemTitlePlaceholder',
+                                )}
+                                className="text-base"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`subItems.${index}.amount` as any}
+                        render={({ field: { onChange, ...field } }) => (
+                          <FormItem>
+                            <FormLabel>{t('SubItems.amount')}</FormLabel>
+                            <div className="flex items-baseline gap-2">
+                              <span>{group.currency}</span>
+                              <FormControl>
+                                <Input
+                                  className="text-base max-w-[120px]"
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="0.00"
+                                  onChange={(event) => {
+                                    const v = enforceCurrencyPattern(
+                                      event.target.value,
+                                    )
+                                    onChange(v)
+                                  }}
+                                  onFocus={(e) => {
+                                    const target = e.currentTarget
+                                    setTimeout(() => target.select(), 1)
+                                  }}
+                                  {...field}
+                                />
+                              </FormControl>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      size="icon"
+                      className="mt-6 text-destructive hover:text-destructive"
+                      onClick={() => subItemsFieldArray.remove(index)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* Sub-item split mode */}
+                  <Collapsible
+                    defaultOpen={
+                      form.watch(`subItems.${index}.splitMode` as any) !==
+                      'EVENLY'
+                    }
+                  >
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="link"
+                        type="button"
+                        className="-mx-4 text-xs"
+                      >
+                        {t('SubItems.splitMode')}:{' '}
+                        {match(
+                          form.watch(`subItems.${index}.splitMode` as any),
+                        )
+                          .with('EVENLY', () => t('SplitModeField.evenly'))
+                          .with('BY_SHARES', () =>
+                            t('SplitModeField.byShares'),
+                          )
+                          .with('BY_PERCENTAGE', () =>
+                            t('SplitModeField.byPercentage'),
+                          )
+                          .with('BY_AMOUNT', () =>
+                            t('SplitModeField.byAmount'),
+                          )
+                          .otherwise(() => t('SplitModeField.evenly'))}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <FormField
+                        control={form.control}
+                        name={`subItems.${index}.splitMode` as any}
+                        render={({ field }) => (
+                          <FormItem className="mb-3">
+                            <FormControl>
+                              <Select
+                                onValueChange={(value) => {
+                                  form.setValue(
+                                    `subItems.${index}.splitMode` as any,
+                                    value as any,
+                                    {
+                                      shouldDirty: true,
+                                      shouldValidate: true,
+                                    },
+                                  )
+                                }}
+                                defaultValue={field.value as string}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="EVENLY">
+                                    {t('SplitModeField.evenly')}
+                                  </SelectItem>
+                                  <SelectItem value="BY_SHARES">
+                                    {t('SplitModeField.byShares')}
+                                  </SelectItem>
+                                  <SelectItem value="BY_PERCENTAGE">
+                                    {t('SplitModeField.byPercentage')}
+                                  </SelectItem>
+                                  <SelectItem value="BY_AMOUNT">
+                                    {t('SplitModeField.byAmount')}
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {/* Sub-item participants */}
+                  <div className="text-sm font-medium mb-1">
+                    {t('SubItems.paidFor')}
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name={`subItems.${index}.paidFor` as any}
+                    render={() => (
+                      <FormItem className="space-y-0">
+                        {group.participants.map(({ id, name }) => (
+                          <FormField
+                            key={id}
+                            control={form.control}
+                            name={`subItems.${index}.paidFor` as any}
+                            render={({ field }) => {
+                              const paidForArray = (field.value ?? []) as any[]
+                              const subItemSplitMode = form.watch(
+                                `subItems.${index}.splitMode` as any,
+                              )
+                              return (
+                                <div className="flex flex-wrap gap-y-2 items-center border-t last-of-type:border-b py-2">
+                                  <FormItem className="flex-1 flex flex-row items-start space-x-3 space-y-0">
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={paidForArray.some(
+                                          (p: any) => p.participant === id,
+                                        )}
+                                        onCheckedChange={(checked) => {
+                                          const options = {
+                                            shouldDirty: true,
+                                            shouldValidate: true,
+                                          }
+                                          if (checked) {
+                                            form.setValue(
+                                              `subItems.${index}.paidFor` as any,
+                                              [
+                                                ...paidForArray,
+                                                {
+                                                  participant: id,
+                                                  shares: '1',
+                                                },
+                                              ],
+                                              options,
+                                            )
+                                          } else {
+                                            form.setValue(
+                                              `subItems.${index}.paidFor` as any,
+                                              paidForArray.filter(
+                                                (p: any) =>
+                                                  p.participant !== id,
+                                              ),
+                                              options,
+                                            )
+                                          }
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm font-normal">
+                                      {name}
+                                    </FormLabel>
+                                  </FormItem>
+                                  {subItemSplitMode !== 'EVENLY' &&
+                                    paidForArray.some(
+                                      (p: any) => p.participant === id,
+                                    ) && (
+                                      <div className="flex gap-1 items-center">
+                                        {subItemSplitMode === 'BY_AMOUNT' && (
+                                          <span className="text-sm">
+                                            {group.currency}
+                                          </span>
+                                        )}
+                                        <Input
+                                          className="text-base w-[80px] -my-1"
+                                          type="text"
+                                          inputMode={
+                                            subItemSplitMode === 'BY_AMOUNT'
+                                              ? 'decimal'
+                                              : 'numeric'
+                                          }
+                                          value={
+                                            paidForArray.find(
+                                              (p: any) => p.participant === id,
+                                            )?.shares ?? ''
+                                          }
+                                          onChange={(event) => {
+                                            const newValue =
+                                              enforceCurrencyPattern(
+                                                event.target.value,
+                                              )
+                                            form.setValue(
+                                              `subItems.${index}.paidFor` as any,
+                                              paidForArray.map((p: any) =>
+                                                p.participant === id
+                                                  ? {
+                                                      participant: id,
+                                                      shares: newValue,
+                                                    }
+                                                  : p,
+                                              ),
+                                              { shouldValidate: true },
+                                            )
+                                          }}
+                                        />
+                                        {['BY_SHARES', 'BY_PERCENTAGE'].includes(
+                                          subItemSplitMode as string,
+                                        ) && (
+                                          <span className="text-sm">
+                                            {subItemSplitMode === 'BY_PERCENTAGE'
+                                              ? '%'
+                                              : t('shares')}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                </div>
+                              )
+                            }}
+                          />
+                        ))}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              ))}
+              {form.formState.errors.subItems &&
+                typeof form.formState.errors.subItems === 'object' &&
+                'message' in form.formState.errors.subItems && (
+                  <p className="text-sm font-medium text-destructive">
+                    {t('SubItems.totalExceeded')}
+                  </p>
+                )}
+            </CardContent>
+          )}
         </Card>
 
         {runtimeFeatureFlags.enableExpenseDocuments && (

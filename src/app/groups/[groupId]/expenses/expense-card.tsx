@@ -89,6 +89,11 @@ export function ExpenseCard({
               Lease
             </Badge>
           )}
+          {expense.subItems && expense.subItems.length > 0 && (
+            <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 border-purple-200 dark:border-purple-800 text-[10px] px-1.5 py-0" variant="outline">
+              {expense.subItems.length} sub-items
+            </Badge>
+          )}
         </div>
         <div className="text-xs text-muted-foreground">
           <Participants expense={expense} participantCount={participantCount} />

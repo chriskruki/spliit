@@ -7,13 +7,36 @@ import {
 
 type MockExpense = Parameters<typeof getSettlementBalances>[0][number]
 
+type SubItemInput = {
+  title?: string
+  amount: number
+  splitMode?: string
+  paidForIds: string[]
+  shares?: number[]
+}
+
+function makeSubItem(input: SubItemInput) {
+  const { title = 'Sub-item', amount, splitMode = 'EVENLY', paidForIds, shares } = input
+  return {
+    id: `sub-${Math.random().toString(36).slice(2)}`,
+    title,
+    amount,
+    splitMode,
+    paidFor: paidForIds.map((pid, i) => ({
+      participant: { id: pid, name: pid },
+      shares: shares ? shares[i] : 1,
+    })),
+  }
+}
+
 function makeExpense(
-  overrides: Partial<MockExpense> & {
+  overrides: Omit<Partial<MockExpense>, 'subItems'> & {
     id?: string
     title?: string
     amount: number
     paidById: string
     paidForIds: string[]
+    subItems?: SubItemInput[]
   },
 ): MockExpense {
   const {
@@ -22,6 +45,7 @@ function makeExpense(
     amount,
     paidById,
     paidForIds,
+    subItems: subItemInputs,
     ...rest
   } = overrides
   return {
@@ -46,6 +70,7 @@ function makeExpense(
       participant: { id: pid, name: pid },
       shares: 1,
     })),
+    subItems: (subItemInputs ?? []).map(makeSubItem),
     _count: { documents: 0 },
     ...rest,
   } as MockExpense
@@ -305,5 +330,141 @@ describe('lease mode - buyback breakdown', () => {
     expect(result.lease[0].buybackBreakdown).toHaveLength(1)
     expect(result.lease[0].buybackBreakdown[0].participantId).toBe('B')
     expect(result.lease[0].buybackBreakdown[0].amount).toBe(1000)
+  })
+})
+
+describe('sub-items - balance calculation', () => {
+  it('expense with no sub-items behaves the same as before', () => {
+    const expenses = [
+      makeExpense({ amount: 1000, paidById: 'A', paidForIds: ['A', 'B'] }),
+    ]
+    const balances = getBalances(expenses)
+    expect(balances['A'].total).toBe(500)
+    expect(balances['B'].total).toBe(-500)
+  })
+
+  it('one sub-item with remainder assigned to payer', () => {
+    // $30 expense, A pays. Parent split = only A.
+    // Sub-item: $8 pretzels split evenly between A and B
+    // Remainder: $22 goes to A (parent split)
+    // A paid 3000, A owes: 2200 (remainder) + 400 (half pretzels) = 2600
+    // B owes: 400 (half pretzels)
+    const expenses = [
+      makeExpense({
+        amount: 3000,
+        paidById: 'A',
+        paidForIds: ['A'],
+        subItems: [
+          { amount: 800, paidForIds: ['A', 'B'], splitMode: 'EVENLY' },
+        ],
+      }),
+    ]
+    const balances = getBalances(expenses)
+    expect(balances['A'].paid).toBe(3000)
+    expect(balances['A'].paidFor).toBe(2600)
+    expect(balances['A'].total).toBe(400) // paid 3000, owed 2600
+    expect(balances['B'].paidFor).toBe(400)
+    expect(balances['B'].total).toBe(-400)
+  })
+
+  it('multiple sub-items with different split modes', () => {
+    // $100 expense, A pays. Parent split = evenly A, B, C
+    // Sub-item 1: $20 split evenly between A and B
+    // Sub-item 2: $30 BY_AMOUNT: B=2000, C=1000
+    // Remainder: $50 evenly between A, B, C (≈1667, 1667, 1666)
+    const expenses = [
+      makeExpense({
+        amount: 10000,
+        paidById: 'A',
+        paidForIds: ['A', 'B', 'C'],
+        subItems: [
+          { amount: 2000, paidForIds: ['A', 'B'], splitMode: 'EVENLY' },
+          {
+            amount: 3000,
+            paidForIds: ['B', 'C'],
+            splitMode: 'BY_AMOUNT',
+            shares: [2000, 1000],
+          },
+        ],
+      }),
+    ]
+    const balances = getBalances(expenses)
+    // A: paid 10000, paidFor = 1000 (sub1) + 0 (sub2) + remainder share
+    // B: paid 0, paidFor = 1000 (sub1) + 2000 (sub2) + remainder share
+    // C: paid 0, paidFor = 0 (sub1) + 1000 (sub2) + remainder share (last gets remainder)
+    expect(balances['A'].paid).toBe(10000)
+    expect(balances['A'].paidFor).toBe(2667)
+    expect(balances['B'].paidFor).toBe(4667)
+    expect(balances['C'].paidFor).toBe(2667) // C is last, gets the rounding remainder
+    // Totals must sum to approximately zero (rounding may cause ±1)
+    const totalBalance =
+      balances['A'].total + balances['B'].total + balances['C'].total
+    expect(Math.abs(totalBalance)).toBeLessThanOrEqual(1)
+  })
+
+  it('sub-items with BY_PERCENTAGE split', () => {
+    // $100 expense. Sub-item: $40 split 75%/25% between A and B
+    // Remainder: $60 evenly between A and B
+    const expenses = [
+      makeExpense({
+        amount: 10000,
+        paidById: 'A',
+        paidForIds: ['A', 'B'],
+        subItems: [
+          {
+            amount: 4000,
+            paidForIds: ['A', 'B'],
+            splitMode: 'BY_PERCENTAGE',
+            shares: [7500, 2500], // 75%, 25%
+          },
+        ],
+      }),
+    ]
+    const balances = getBalances(expenses)
+    // A: paidFor = 3000 (75% of 4000) + 3000 (half remainder) = 6000
+    // B: paidFor = 1000 (25% of 4000) + 3000 (half remainder) = 4000
+    expect(balances['A'].paidFor).toBe(6000)
+    expect(balances['B'].paidFor).toBe(4000)
+  })
+
+  it('sub-items summing to exactly the parent amount (zero remainder)', () => {
+    // $50 expense. Two sub-items totaling $50. No remainder.
+    const expenses = [
+      makeExpense({
+        amount: 5000,
+        paidById: 'A',
+        paidForIds: ['A', 'B'],
+        subItems: [
+          { amount: 2000, paidForIds: ['A', 'B'], splitMode: 'EVENLY' },
+          { amount: 3000, paidForIds: ['B'], splitMode: 'EVENLY' },
+        ],
+      }),
+    ]
+    const balances = getBalances(expenses)
+    // A: paidFor = 1000 (sub1) + 0 (sub2) = 1000
+    // B: paidFor = 1000 (sub1) + 3000 (sub2) = 4000
+    expect(balances['A'].paidFor).toBe(1000)
+    expect(balances['B'].paidFor).toBe(4000)
+    expect(balances['A'].total).toBe(4000) // paid 5000 - owed 1000
+    expect(balances['B'].total).toBe(-4000)
+  })
+
+  it('sub-item amount equals parent amount (zero remainder)', () => {
+    const expenses = [
+      makeExpense({
+        amount: 1000,
+        paidById: 'A',
+        paidForIds: ['A', 'B'],
+        subItems: [
+          { amount: 1000, paidForIds: ['B'], splitMode: 'EVENLY' },
+        ],
+      }),
+    ]
+    const balances = getBalances(expenses)
+    // All goes to B via sub-item, nothing via remainder
+    expect(balances['A'].paidFor).toBe(0)
+    expect(balances['B'].paidFor).toBe(1000)
+    expect(balances['A'].total).toBe(1000)
+    expect(balances['B'].total).toBe(-1000)
   })
 })
