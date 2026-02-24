@@ -343,7 +343,7 @@
     "GrandTotal": {
       "title": "Summary",
       "totalOwed": "Total outstanding",
-      "note": "Excludes pending lease buybacks"
+      "note": "Includes unpaid buy-ins and pending buybacks"
     },
     "Normal": {
       "title": "Normal Balances",
@@ -365,12 +365,32 @@
       "totalCost": "Total cost",
       "buybackDate": "Buyback by {date}",
       "active": "Active",
+      "inactive": "Inactive",
       "completed": "Completed",
       "buybackBreakdown": "Buyback breakdown",
+      "toggleBuybackActive": "Activate buyback",
+      "toggleBuybackInactive": "Deactivate buyback",
       "owedTo": "owed to {name}",
       "toggleBuyback": "Mark as bought back",
       "toggleBuybackUndo": "Mark as not bought back",
-      "createReimbursement": "Create reimbursement"
+      "createReimbursement": "Create reimbursement",
+      "buyInBreakdown": "Buy-in",
+      "buyInFrom": "from {name}",
+      "buyInPaid": "Paid",
+      "buyInUnpaid": "Unpaid",
+      "toggleBuyInPaid": "Mark paid",
+      "toggleBuyInUndo": "Mark unpaid"
+    },
+    "PersonTabs": {
+      "all": "All",
+      "noDebts": "{name} has no outstanding debts.",
+      "owesTo": "Owes {creditor}",
+      "normalLabel": "Normal",
+      "straightLabel": "Straight",
+      "leaseBuyInLabel": "Buy-in",
+      "leaseBuybackLabel": "Buyback",
+      "forExpense": "for {expense}",
+      "forItem": "for {item}"
     }
   },
   "Stats": {

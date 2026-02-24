@@ -3,6 +3,7 @@
 import { BalancesList } from '@/app/groups/[groupId]/balances-list'
 import { GrandTotalSummary } from '@/app/groups/[groupId]/grand-total-summary'
 import { LeaseItemsList } from '@/app/groups/[groupId]/lease-items-list'
+import { PersonBalanceView } from '@/app/groups/[groupId]/person-balance-view'
 import { ReimbursementList } from '@/app/groups/[groupId]/reimbursement-list'
 import { StraightBalancesList } from '@/app/groups/[groupId]/straight-balances-list'
 import {
@@ -18,6 +19,12 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 import { getCurrencyFromGroup } from '@/lib/utils'
 import { trpc } from '@/trpc/client'
 import { ChevronDown } from 'lucide-react'
@@ -34,6 +41,7 @@ export default function BalancesAndReimbursements() {
       groupId,
     })
   const t = useTranslations('Balances')
+  const [activeTab, setActiveTab] = useState('all')
 
   useEffect(() => {
     utils.groups.balances.invalidate()
@@ -49,109 +57,140 @@ export default function BalancesAndReimbursements() {
   const hasLease = !isLoading && balancesData.lease.length > 0
 
   return (
-    <>
-      {/* Grand Total Summary */}
-      {!isLoading && (hasStraight || hasLease) && (
-        <GrandTotalSummary
-          totals={balancesData.totals}
-          currency={getCurrencyFromGroup(group)}
-        />
-      )}
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <TabsList className="flex flex-wrap h-auto gap-1 mb-4">
+        <TabsTrigger value="all">{t('PersonTabs.all')}</TabsTrigger>
+        {group?.participants.map((p) => (
+          <TabsTrigger key={p.id} value={p.id}>
+            {p.name}
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
-      {/* Normal Balances - Green */}
-      <CollapsibleSection
-        title={hasNormal || hasStraight || hasLease ? t('Normal.title') : t('title')}
-        description={
-          hasNormal || hasStraight || hasLease
-            ? t('Normal.description')
-            : t('description')
-        }
-        borderColor="border-l-green-500"
-        showBorder={hasNormal || hasStraight || hasLease}
-        defaultOpen={true}
-      >
-        {isLoading ? (
-          <>
-            <BalancesLoading
-              participantCount={group?.participants.length}
-            />
-            <ReimbursementsLoading
-              participantCount={group?.participants.length}
-            />
-          </>
-        ) : (
-          <>
-            <BalancesList
-              balances={balancesData.balances}
-              participants={group.participants}
-              currency={getCurrencyFromGroup(group)}
-            />
-            <div className="mt-4">
-              <h4 className="text-sm font-semibold mb-2">
-                {t('Reimbursements.title')}
-              </h4>
-              <p className="text-xs text-muted-foreground mb-3">
-                {t('Reimbursements.description')}
-              </p>
-              <ReimbursementList
-                reimbursements={balancesData.reimbursements}
+      <TabsContent value="all">
+        {/* Grand Total Summary */}
+        {!isLoading && (hasStraight || hasLease) && (
+          <GrandTotalSummary
+            totals={balancesData.totals}
+            currency={getCurrencyFromGroup(group)}
+          />
+        )}
+
+        {/* Normal Balances - Green */}
+        <CollapsibleSection
+          title={
+            hasNormal || hasStraight || hasLease
+              ? t('Normal.title')
+              : t('title')
+          }
+          description={
+            hasNormal || hasStraight || hasLease
+              ? t('Normal.description')
+              : t('description')
+          }
+          borderColor="border-l-green-500"
+          showBorder={hasNormal || hasStraight || hasLease}
+          defaultOpen={true}
+        >
+          {isLoading ? (
+            <>
+              <BalancesLoading
+                participantCount={group?.participants.length}
+              />
+              <ReimbursementsLoading
+                participantCount={group?.participants.length}
+              />
+            </>
+          ) : (
+            <>
+              <BalancesList
+                balances={balancesData.balances}
+                participants={group.participants}
+                currency={getCurrencyFromGroup(group)}
+              />
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-2">
+                  {t('Reimbursements.title')}
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {t('Reimbursements.description')}
+                </p>
+                <ReimbursementList
+                  reimbursements={balancesData.reimbursements}
+                  participants={group.participants}
+                  currency={getCurrencyFromGroup(group)}
+                  groupId={groupId}
+                />
+              </div>
+            </>
+          )}
+        </CollapsibleSection>
+
+        {/* Straight Balances - Blue */}
+        {(hasStraight || isLoading) && (
+          <CollapsibleSection
+            title={t('Straight.title')}
+            description={t('Straight.description')}
+            borderColor="border-l-blue-500"
+            showBorder={true}
+            defaultOpen={hasStraight}
+          >
+            {isLoading ? (
+              <ReimbursementsLoading
+                participantCount={group?.participants.length}
+              />
+            ) : (
+              <StraightBalancesList
+                items={balancesData.straight}
                 participants={group.participants}
                 currency={getCurrencyFromGroup(group)}
                 groupId={groupId}
               />
-            </div>
-          </>
+            )}
+          </CollapsibleSection>
         )}
-      </CollapsibleSection>
 
-      {/* Straight Balances - Blue */}
-      {(hasStraight || isLoading) && (
-        <CollapsibleSection
-          title={t('Straight.title')}
-          description={t('Straight.description')}
-          borderColor="border-l-blue-500"
-          showBorder={true}
-          defaultOpen={hasStraight}
-        >
-          {isLoading ? (
-            <ReimbursementsLoading
-              participantCount={group?.participants.length}
-            />
-          ) : (
-            <StraightBalancesList
-              items={balancesData.straight}
+        {/* Lease Items - Amber */}
+        {(hasLease || isLoading) && (
+          <CollapsibleSection
+            title={t('Lease.title')}
+            description={t('Lease.description')}
+            borderColor="border-l-amber-500"
+            showBorder={true}
+            defaultOpen={hasLease}
+          >
+            {isLoading ? (
+              <ReimbursementsLoading
+                participantCount={group?.participants.length}
+              />
+            ) : (
+              <LeaseItemsList
+                items={balancesData.lease}
+                participants={group.participants}
+                currency={getCurrencyFromGroup(group)}
+                groupId={groupId}
+              />
+            )}
+          </CollapsibleSection>
+        )}
+      </TabsContent>
+
+      {group?.participants.map((p) => (
+        <TabsContent key={p.id} value={p.id}>
+          {!isLoading && (
+            <PersonBalanceView
+              personId={p.id}
+              reimbursements={balancesData.reimbursements}
+              straight={balancesData.straight}
+              lease={balancesData.lease}
               participants={group.participants}
               currency={getCurrencyFromGroup(group)}
               groupId={groupId}
             />
           )}
-        </CollapsibleSection>
-      )}
-
-      {/* Lease Items - Amber */}
-      {(hasLease || isLoading) && (
-        <CollapsibleSection
-          title={t('Lease.title')}
-          description={t('Lease.description')}
-          borderColor="border-l-amber-500"
-          showBorder={true}
-          defaultOpen={hasLease}
-        >
-          {isLoading ? (
-            <ReimbursementsLoading
-              participantCount={group?.participants.length}
-            />
-          ) : (
-            <LeaseItemsList
-              items={balancesData.lease}
-              participants={group.participants}
-              currency={getCurrencyFromGroup(group)}
-              groupId={groupId}
-            />
-          )}
-        </CollapsibleSection>
-      )}
-    </>
+        </TabsContent>
+      ))}
+    </Tabs>
   )
 }
 

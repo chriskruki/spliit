@@ -474,6 +474,7 @@ export async function getGroupExpenses(
       settlementMode: true,
       leaseOwnerId: true,
       leaseBuybackDate: true,
+      leaseBuybackActive: true,
       leaseBuybackCompleted: true,
       leaseItemName: true,
       leaseOwner: { select: { id: true, name: true } },
@@ -492,6 +493,11 @@ export async function getGroupExpenses(
               shares: true,
             },
           },
+        },
+      },
+      leaseBuyInPayments: {
+        select: {
+          participantId: true,
         },
       },
     },

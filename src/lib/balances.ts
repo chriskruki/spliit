@@ -27,8 +27,10 @@ export type LeaseItem = {
   totalCost: number
   ownerId: string
   buybackDate: Date | null
+  buybackActive: boolean
   buybackCompleted: boolean
   buybackBreakdown: Array<{ participantId: string; amount: number }>
+  buyInBreakdown: Array<{ participantId: string; amount: number; paid: boolean }>
 }
 
 export type SettlementBalances = {
@@ -274,14 +276,27 @@ function getLeaseItems(expenses: GroupExpenses): LeaseItem[] {
       .filter((s) => s.participantId !== ownerId && s.amount !== 0)
       .map((s) => ({ participantId: s.participantId, amount: s.amount }))
 
+    const paidBuyInIds = new Set(
+      (expense.leaseBuyInPayments ?? []).map((p) => p.participantId),
+    )
+    const buyInBreakdown = shares
+      .filter((s) => s.participantId !== expense.paidBy.id && s.amount !== 0)
+      .map((s) => ({
+        participantId: s.participantId,
+        amount: s.amount,
+        paid: paidBuyInIds.has(s.participantId),
+      }))
+
     return {
       expenseId: expense.id,
       itemName: expense.leaseItemName ?? expense.title,
       totalCost: expense.amount,
       ownerId,
       buybackDate: expense.leaseBuybackDate,
+      buybackActive: expense.leaseBuybackActive,
       buybackCompleted: expense.leaseBuybackCompleted,
       buybackBreakdown,
+      buyInBreakdown,
     }
   })
 }
@@ -322,7 +337,12 @@ export function getSettlementBalances(
     totalOwed += item.amount
   }
   for (const item of leaseItems) {
-    if (!item.buybackCompleted) {
+    for (const b of item.buyInBreakdown) {
+      if (!b.paid) {
+        totalOwed += b.amount
+      }
+    }
+    if (item.buybackActive && !item.buybackCompleted) {
       for (const b of item.buybackBreakdown) {
         totalOwed += b.amount
       }

@@ -32,6 +32,7 @@ model Participant {
   expensesPaidFor ExpensePaidFor[]
   leaseExpenses   Expense[] @relation("LeaseOwner")
   subItemsPaidFor SubItemPaidFor[]
+  leaseBuyInPayments LeaseBuyInPayment[]
 }
 
 model Category {
@@ -63,11 +64,13 @@ model Expense {
   leaseOwner            Participant?   @relation("LeaseOwner", fields: [leaseOwnerId], references: [id])
   leaseBuybackDate      DateTime?      @db.Date
   leaseBuybackCompleted Boolean        @default(false)
+  leaseBuybackActive    Boolean        @default(false)
   leaseItemName         String?
   createdAt        DateTime          @default(now())
   documents        ExpenseDocument[]
   notes            String?
   subItems         ExpenseSubItem[]
+  leaseBuyInPayments LeaseBuyInPayment[]
 
   recurrenceRule         RecurrenceRule?       @default(NONE)
   recurringExpenseLink   RecurringExpenseLink?
@@ -166,4 +169,13 @@ enum ActivityType {
   CREATE_EXPENSE
   UPDATE_EXPENSE
   DELETE_EXPENSE
+}
+
+model LeaseBuyInPayment {
+  expenseId     String
+  participantId String
+  expense       Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([expenseId, participantId])
 }

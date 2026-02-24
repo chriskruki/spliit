@@ -31,6 +31,17 @@ export function LeaseItemsList({
       utils.groups.balances.invalidate()
     },
   })
+  const toggleBuybackActive =
+    trpc.groups.expenses.toggleLeaseBuybackActive.useMutation({
+      onSuccess: () => {
+        utils.groups.balances.invalidate()
+      },
+    })
+  const toggleBuyIn = trpc.groups.expenses.toggleLeaseBuyIn.useMutation({
+    onSuccess: () => {
+      utils.groups.balances.invalidate()
+    },
+  })
 
   if (items.length === 0) {
     return <p className="text-sm pb-6">{t('noItems')}</p>
@@ -60,10 +71,16 @@ export function LeaseItemsList({
                   className={`inline-block text-xs px-1.5 py-0.5 rounded-full ${
                     item.buybackCompleted
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                      : item.buybackActive
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                        : 'bg-muted text-muted-foreground'
                   }`}
                 >
-                  {item.buybackCompleted ? t('completed') : t('active')}
+                  {item.buybackCompleted
+                    ? t('completed')
+                    : item.buybackActive
+                      ? t('active')
+                      : t('inactive')}
                 </span>
               </div>
             </div>
@@ -78,15 +95,97 @@ export function LeaseItemsList({
               </div>
             )}
 
-            {item.buybackBreakdown.length > 0 && (
+            {item.buyInBreakdown.length > 0 && (
               <div className="border-t pt-2 mt-2">
                 <div className="text-xs font-medium text-muted-foreground mb-1">
-                  {t('buybackBreakdown')}
+                  {t('buyInBreakdown')}
+                </div>
+                {item.buyInBreakdown.map((b) => (
+                  <div
+                    key={b.participantId}
+                    className="flex items-center justify-between text-sm py-1 gap-2"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {formatCurrency(currency, b.amount, locale)}{' '}
+                      <span className="text-muted-foreground text-xs">
+                        {t('buyInFrom', {
+                          name: getParticipant(b.participantId)?.name ?? '',
+                        })}
+                      </span>
+                      <span
+                        className={`inline-block text-xs px-1.5 py-0.5 rounded-full ${
+                          b.paid
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {b.paid ? t('buyInPaid') : t('buyInUnpaid')}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      {!b.paid && (
+                        <Button
+                          variant="link"
+                          asChild
+                          className="-mx-2 -my-1 h-auto text-xs"
+                        >
+                          <Link
+                            href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${b.participantId}&to=${item.ownerId}&amount=${b.amount}`}
+                          >
+                            {t('createReimbursement')}
+                          </Link>
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto py-0.5 px-1.5 text-xs"
+                        onClick={() =>
+                          toggleBuyIn.mutate({
+                            groupId,
+                            expenseId: item.expenseId,
+                            participantId: b.participantId,
+                          })
+                        }
+                        disabled={toggleBuyIn.isPending}
+                      >
+                        {b.paid ? t('toggleBuyInUndo') : t('toggleBuyInPaid')}
+                      </Button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {item.buybackBreakdown.length > 0 && (
+              <div className="border-t pt-2 mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {t('buybackBreakdown')}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto py-0.5 px-1.5 text-xs"
+                    onClick={() =>
+                      toggleBuybackActive.mutate({
+                        groupId,
+                        expenseId: item.expenseId,
+                      })
+                    }
+                    disabled={toggleBuybackActive.isPending}
+                  >
+                    {item.buybackActive
+                      ? t('toggleBuybackInactive')
+                      : t('toggleBuybackActive')}
+                  </Button>
                 </div>
                 {item.buybackBreakdown.map((b) => (
                   <div
                     key={b.participantId}
-                    className="flex items-center justify-between text-sm py-1"
+                    className={`flex items-center justify-between text-sm py-1 ${
+                      !item.buybackActive ? 'opacity-50' : ''
+                    }`}
                   >
                     <span>
                       {formatCurrency(currency, b.amount, locale)}{' '}
@@ -96,13 +195,19 @@ export function LeaseItemsList({
                         })}
                       </span>
                     </span>
-                    <Button variant="link" asChild className="-mx-2 -my-1 h-auto text-xs">
-                      <Link
-                        href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${item.ownerId}&to=${b.participantId}&amount=${b.amount}`}
+                    {item.buybackActive && (
+                      <Button
+                        variant="link"
+                        asChild
+                        className="-mx-2 -my-1 h-auto text-xs"
                       >
-                        {t('createReimbursement')}
-                      </Link>
-                    </Button>
+                        <Link
+                          href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${item.ownerId}&to=${b.participantId}&amount=${b.amount}`}
+                        >
+                          {t('createReimbursement')}
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

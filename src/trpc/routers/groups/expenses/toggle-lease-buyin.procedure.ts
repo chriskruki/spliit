@@ -1,0 +1,50 @@
+import { prisma } from '@/lib/prisma'
+import { baseProcedure } from '@/trpc/init'
+import { TRPCError } from '@trpc/server'
+import { z } from 'zod'
+
+export const toggleLeaseBuyInProcedure = baseProcedure
+  .input(
+    z.object({
+      groupId: z.string().min(1),
+      expenseId: z.string().min(1),
+      participantId: z.string().min(1),
+    }),
+  )
+  .mutation(async ({ input: { groupId, expenseId, participantId } }) => {
+    const expense = await prisma.expense.findFirst({
+      where: { id: expenseId, groupId },
+    })
+
+    if (!expense) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Expense not found',
+      })
+    }
+
+    if (expense.settlementMode !== 'LEASE') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Expense is not a lease',
+      })
+    }
+
+    const existing = await prisma.leaseBuyInPayment.findUnique({
+      where: {
+        expenseId_participantId: { expenseId, participantId },
+      },
+    })
+
+    if (existing) {
+      return prisma.leaseBuyInPayment.delete({
+        where: {
+          expenseId_participantId: { expenseId, participantId },
+        },
+      })
+    }
+
+    return prisma.leaseBuyInPayment.create({
+      data: { expenseId, participantId },
+    })
+  })
