@@ -227,7 +227,9 @@ export function ExpenseForm({
         }
       : searchParams.get('reimbursement')
       ? {
-          title: t('reimbursement'),
+          title: searchParams.get('expenseName')
+            ? `${searchParams.get('expenseName')} - ${t('reimbursement')}`
+            : t('reimbursement'),
           expenseDate: new Date(),
           amount: amountAsDecimal(
             Number(searchParams.get('amount')) || 0,
