@@ -18,15 +18,13 @@ import './globals.css'
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_BASE_URL),
   title: {
-    default: 'Spliit · Share Expenses with Friends & Family',
+    default: 'Sin Citadel - Strong walls. Weak knees',
     template: '%s · Spliit',
   },
-  description:
-    'Spliit is a minimalist web application to share expenses with friends and family. No ads, no account, no problem.',
+  description: 'Strong walls. Weak knees.',
   openGraph: {
-    title: 'Spliit · Share Expenses with Friends & Family',
-    description:
-      'Spliit is a minimalist web application to share expenses with friends and family. No ads, no account, no problem.',
+    title: 'Sin Citadel - Strong walls. Weak knees',
+    description: 'Strong walls. Weak knees.',
     images: `/banner.png`,
     type: 'website',
     url: '/',
@@ -36,9 +34,8 @@ export const metadata: Metadata = {
     creator: '@scastiel',
     site: '@scastiel',
     images: `/banner.png`,
-    title: 'Spliit · Share Expenses with Friends & Family',
-    description:
-      'Spliit is a minimalist web application to share expenses with friends and family. No ads, no account, no problem.',
+    title: 'Sin Citadel - Strong walls. Weak knees',
+    description: 'Strong walls. Weak knees.',
   },
   appleWebApp: {
     capable: true,
