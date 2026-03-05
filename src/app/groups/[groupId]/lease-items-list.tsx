@@ -130,7 +130,7 @@ export function LeaseItemsList({
                           className="-mx-2 -my-1 h-auto text-xs"
                         >
                           <Link
-                            href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${b.participantId}&to=${item.ownerId}&amount=${b.amount}`}
+                            href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${b.participantId}&to=${item.ownerId}&amount=${b.amount}&expenseName=${encodeURIComponent(item.itemName)}`}
                           >
                             {t('createReimbursement')}
                           </Link>
@@ -202,7 +202,7 @@ export function LeaseItemsList({
                         className="-mx-2 -my-1 h-auto text-xs"
                       >
                         <Link
-                          href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${item.ownerId}&to=${b.participantId}&amount=${b.amount}`}
+                          href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${item.ownerId}&to=${b.participantId}&amount=${b.amount}&expenseName=${encodeURIComponent(item.itemName)}`}
                         >
                           {t('createReimbursement')}
                         </Link>

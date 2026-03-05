@@ -144,7 +144,7 @@ export function PersonBalanceView({
                               className="-mx-2 -my-1 h-auto text-xs"
                             >
                               <Link
-                                href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}`}
+                                href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle!)}`}
                               >
                                 {tStraight('markAsPaid')}
                               </Link>
@@ -158,7 +158,7 @@ export function PersonBalanceView({
                                 className="-mx-2 -my-1 h-auto text-xs"
                               >
                                 <Link
-                                  href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}`}
+                                  href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}&expenseName=${encodeURIComponent(item.leaseItemName!)}`}
                                 >
                                   {tLease('createReimbursement')}
                                 </Link>
@@ -187,7 +187,7 @@ export function PersonBalanceView({
                               className="-mx-2 -my-1 h-auto text-xs"
                             >
                               <Link
-                                href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}`}
+                                href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}&expenseName=${encodeURIComponent(item.leaseItemName!)}`}
                               >
                                 {tLease('createReimbursement')}
                               </Link>
