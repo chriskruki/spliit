@@ -5,7 +5,7 @@ milestone_name: milestone
 status: planning
 stopped_at: Completed quick-1 (name reimbursements)
 last_updated: "2026-03-05T04:54:26.890Z"
-last_activity: 2026-02-24 — Roadmap created
+last_activity: 2026-03-05 - Completed quick task 1
 progress:
   percent: 0
 ---
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 Phase: 1 of 2 (Balance Verification)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-02-24 — Roadmap created
+Last activity: 2026-03-05 - Completed quick task 1: Name reimbursements as '{expense name} - reimbursement' format
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -65,6 +65,12 @@ None yet.
 ### Blockers/Concerns
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Name reimbursements as '{expense name} - reimbursement' format | 2026-03-05 | ce46066 | [1-name-reimbursements-as-expense-name-reim](./quick/1-name-reimbursements-as-expense-name-reim/) |
 
 ## Session Continuity
 
