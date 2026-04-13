@@ -3,6 +3,7 @@
 import { BalancesList } from '@/app/groups/[groupId]/balances-list'
 import { GrandTotalSummary } from '@/app/groups/[groupId]/grand-total-summary'
 import { LeaseItemsList } from '@/app/groups/[groupId]/lease-items-list'
+import { NormalExpensesList } from '@/app/groups/[groupId]/normal-expenses-list'
 import { PersonBalanceView } from '@/app/groups/[groupId]/person-balance-view'
 import { ReimbursementList } from '@/app/groups/[groupId]/reimbursement-list'
 import { StraightBalancesList } from '@/app/groups/[groupId]/straight-balances-list'
@@ -108,6 +109,19 @@ export default function BalancesAndReimbursements() {
                 participants={group.participants}
                 currency={getCurrencyFromGroup(group)}
               />
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-2">
+                  {t('Normal.expensesTitle')}
+                </h4>
+                <NormalExpensesList
+                  expenses={balancesData.normalExpenses.map((e) => ({
+                    ...e,
+                    expenseDate: new Date(e.expenseDate),
+                  }))}
+                  currency={getCurrencyFromGroup(group)}
+                  groupId={groupId}
+                />
+              </div>
               <div className="mt-4">
                 <h4 className="text-sm font-semibold mb-2">
                   {t('Reimbursements.title')}

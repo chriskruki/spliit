@@ -347,7 +347,10 @@
     },
     "Normal": {
       "title": "Normal Balances",
-      "description": "Net-settled balances across all normal expenses."
+      "description": "Net-settled balances across all normal expenses.",
+      "expensesTitle": "Expenses",
+      "noExpenses": "No normal expenses yet.",
+      "paidBy": "Paid by {name}"
     },
     "Straight": {
       "title": "Straight Balances",
