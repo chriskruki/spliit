@@ -134,8 +134,8 @@ export function PersonBalanceView({
                               item.directNet !== undefined &&
                               Math.round(item.directNet) !==
                                 Math.round(item.amount) && (
-                                <span className="text-xs text-muted-foreground">
-                                  {t('suggestedVsDirect', {
+                                <span className="text-xs text-muted-foreground italic">
+                                  {t('directNetSubtitle', {
                                     direct: formatCurrency(
                                       currency,
                                       item.directNet,
@@ -149,15 +149,6 @@ export function PersonBalanceView({
                                 {t('forExpense', { expense: item.expenseTitle })}
                               </span>
                             )}
-                            {item.type === 'normal' &&
-                              item.normalDetails?.length === 1 &&
-                              !item.normalDetails[0].offset && (
-                                <span className="text-xs text-muted-foreground">
-                                  {t('forExpense', {
-                                    expense: item.normalDetails[0].expenseTitle,
-                                  })}
-                                </span>
-                              )}
                             {(item.type === 'lease-buyin' ||
                               item.type === 'lease-buyback') &&
                               item.leaseItemName && (
@@ -168,31 +159,44 @@ export function PersonBalanceView({
                           </span>
                           {item.type === 'normal' &&
                             item.normalDetails &&
-                            item.normalDetails.length > 1 && (
+                            item.normalDetails.length > 0 && (
                               <span className="flex flex-col pl-2 space-y-0.5">
-                                {item.normalDetails.map((detail) => (
-                                  <span
-                                    key={detail.expenseId}
-                                    className={`text-xs ${
-                                      detail.offset
-                                        ? 'text-red-600 dark:text-red-400'
-                                        : 'text-muted-foreground'
-                                    }`}
-                                  >
-                                    <span className="tabular-nums">
-                                      {detail.offset ? '−' : ''}
-                                      {formatCurrency(
-                                        currency,
-                                        detail.amount,
-                                        locale,
-                                      )}
+                                {item.normalDetails.map((detail) => {
+                                  const isRebalance = !!detail.rebalance
+                                  const negative =
+                                    detail.offset ||
+                                    (isRebalance && detail.amount < 0)
+                                  const className = isRebalance
+                                    ? 'text-xs text-muted-foreground italic'
+                                    : detail.offset
+                                      ? 'text-xs text-red-600 dark:text-red-400'
+                                      : 'text-xs text-muted-foreground'
+                                  const displayAmount = Math.abs(detail.amount)
+                                  const rebalanceLabel =
+                                    detail.amount >= 0
+                                      ? t('rebalancePositive', {
+                                          creditor: creditorName,
+                                        })
+                                      : t('rebalanceNegative')
+                                  return (
+                                    <span key={detail.expenseId} className={className}>
+                                      <span className="tabular-nums">
+                                        {negative ? '−' : ''}
+                                        {formatCurrency(
+                                          currency,
+                                          displayAmount,
+                                          locale,
+                                        )}
+                                      </span>
+                                      {' — '}
+                                      {isRebalance
+                                        ? rebalanceLabel
+                                        : t('forExpense', {
+                                            expense: detail.expenseTitle,
+                                          })}
                                     </span>
-                                    {' — '}
-                                    {t('forExpense', {
-                                      expense: detail.expenseTitle,
-                                    })}
-                                  </span>
-                                ))}
+                                  )
+                                })}
                               </span>
                             )}
                         </span>

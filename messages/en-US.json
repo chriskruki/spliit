@@ -397,7 +397,9 @@
       "leaseBuybackLabel": "Buyback",
       "forExpense": "for {expense}",
       "forItem": "for {item}",
-      "suggestedVsDirect": "(suggested — direct net {direct})"
+      "directNetSubtitle": "direct pair-net {direct}",
+      "rebalancePositive": "(rebalance) you are paying {creditor} on behalf of others",
+      "rebalanceNegative": "(rebalance) routed via other group members"
     }
   },
   "Stats": {

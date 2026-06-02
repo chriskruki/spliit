@@ -10,10 +10,14 @@ export type PersonNormalDetail = {
   expenseTitle: string
   amount: number
   offset?: boolean
+  rebalance?: boolean
 }
 
 export type PersonDebtItem = {
   type: 'normal' | 'straight' | 'lease-buyin' | 'lease-buyback'
+  // For type 'normal': the optimizer's suggested-reimbursement amount
+  // (routed through the full balance graph). For straight/lease: the
+  // direct amount owed.
   amount: number
   expenseId?: string
   expenseTitle?: string
@@ -21,10 +25,9 @@ export type PersonDebtItem = {
   leaseExpenseId?: string
   buyInParticipantId?: string
   normalDetails?: PersonNormalDetail[]
-  // For type 'normal': pairwise net (forward − reverse) between debtor and
-  // creditor. `amount` is the optimizer's suggested-reimbursement value
-  // (which routes through the full balance graph and may not match this
-  // pair's direct debt); `directNet` is the sum of the per-expense list.
+  // For type 'normal': direct pairwise net (forward − reverse) between
+  // debtor and creditor. May differ from `amount` because the optimizer
+  // can route payments through third parties.
   directNet?: number
 }
 
@@ -41,8 +44,45 @@ export function getPersonDebts(
   lease: LeaseItem[],
   normalDetails: NormalExpenseDetail[] = [],
 ): CreditorDebt[] {
-  const creditorMap = new Map<string, PersonDebtItem[]>()
+  // Build pair buckets from normalDetails so we know the direct pair-net
+  // for every counterparty (forward minus reverse). This is the source for
+  // both the per-expense list and the rebalance reconciliation.
+  type PairBucket = {
+    forward: PersonNormalDetail[]
+    reverse: PersonNormalDetail[]
+    net: number
+  }
+  const pairBuckets = new Map<string, PairBucket>()
+  const bucketFor = (otherId: string): PairBucket => {
+    let b = pairBuckets.get(otherId)
+    if (!b) {
+      b = { forward: [], reverse: [], net: 0 }
+      pairBuckets.set(otherId, b)
+    }
+    return b
+  }
+  for (const d of normalDetails) {
+    if (d.from === personId) {
+      const b = bucketFor(d.to)
+      b.forward.push({
+        expenseId: d.expenseId,
+        expenseTitle: d.expenseTitle,
+        amount: d.amount,
+      })
+      b.net += d.amount
+    } else if (d.to === personId) {
+      const b = bucketFor(d.from)
+      b.reverse.push({
+        expenseId: d.expenseId,
+        expenseTitle: d.expenseTitle,
+        amount: d.amount,
+        offset: true,
+      })
+      b.net -= d.amount
+    }
+  }
 
+  const creditorMap = new Map<string, PersonDebtItem[]>()
   const addItem = (creditorId: string, item: PersonDebtItem) => {
     if (!creditorMap.has(creditorId)) {
       creditorMap.set(creditorId, [])
@@ -50,37 +90,33 @@ export function getPersonDebts(
     creditorMap.get(creditorId)!.push(item)
   }
 
-  // Normal: filter reimbursements where from === personId.
-  // Include both directions so the per-expense breakdown reconciles to the
-  // (netted) reimbursement amount: forward items (you owe them) plus
-  // offsetting reverse items (they owe you) flagged with `offset: true`.
+  // Normal: one debt item per optimizer-suggested reimbursement where
+  // personId is the debtor. The headline amount is the suggested payment;
+  // we attach the direct pair-net and the per-expense breakdown alongside,
+  // plus a synthetic rebalance entry that reconciles the two whenever the
+  // optimizer routed part of the debt through a third party.
   for (const r of reimbursements) {
-    if (r.from === personId) {
-      const forward = normalDetails
-        .filter((d) => d.from === personId && d.to === r.to)
-        .map((d) => ({
-          expenseId: d.expenseId,
-          expenseTitle: d.expenseTitle,
-          amount: d.amount,
-        }))
-      const reverse = normalDetails
-        .filter((d) => d.from === r.to && d.to === personId)
-        .map((d) => ({
-          expenseId: d.expenseId,
-          expenseTitle: d.expenseTitle,
-          amount: d.amount,
-          offset: true,
-        }))
-      const directNet =
-        forward.reduce((s, d) => s + d.amount, 0) -
-        reverse.reduce((s, d) => s + d.amount, 0)
-      addItem(r.to, {
-        type: 'normal',
-        amount: r.amount,
-        normalDetails: [...forward, ...reverse],
-        directNet,
+    if (r.from !== personId) continue
+    const bucket = pairBuckets.get(r.to)
+    const forward = bucket?.forward ?? []
+    const reverse = bucket?.reverse ?? []
+    const directNet = bucket?.net ?? 0
+    const details: PersonNormalDetail[] = [...forward, ...reverse]
+    const rebalanceAmount = r.amount - directNet
+    if (Math.round(rebalanceAmount) !== 0) {
+      details.push({
+        expenseId: `__rebalance__${r.to}`,
+        expenseTitle: 'rebalance',
+        amount: rebalanceAmount,
+        rebalance: true,
       })
     }
+    addItem(r.to, {
+      type: 'normal',
+      amount: r.amount,
+      directNet,
+      normalDetails: details,
+    })
   }
 
   // Straight: filter where from === personId and not yet settled
