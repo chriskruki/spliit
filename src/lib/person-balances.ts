@@ -9,6 +9,7 @@ export type PersonNormalDetail = {
   expenseId: string
   expenseTitle: string
   amount: number
+  offset?: boolean
 }
 
 export type PersonDebtItem = {
@@ -20,6 +21,11 @@ export type PersonDebtItem = {
   leaseExpenseId?: string
   buyInParticipantId?: string
   normalDetails?: PersonNormalDetail[]
+  // For type 'normal': pairwise net (forward − reverse) between debtor and
+  // creditor. `amount` is the optimizer's suggested-reimbursement value
+  // (which routes through the full balance graph and may not match this
+  // pair's direct debt); `directNet` is the sum of the per-expense list.
+  directNet?: number
 }
 
 export type CreditorDebt = {
@@ -44,17 +50,36 @@ export function getPersonDebts(
     creditorMap.get(creditorId)!.push(item)
   }
 
-  // Normal: filter reimbursements where from === personId
+  // Normal: filter reimbursements where from === personId.
+  // Include both directions so the per-expense breakdown reconciles to the
+  // (netted) reimbursement amount: forward items (you owe them) plus
+  // offsetting reverse items (they owe you) flagged with `offset: true`.
   for (const r of reimbursements) {
     if (r.from === personId) {
-      const details = normalDetails
+      const forward = normalDetails
         .filter((d) => d.from === personId && d.to === r.to)
         .map((d) => ({
           expenseId: d.expenseId,
           expenseTitle: d.expenseTitle,
           amount: d.amount,
         }))
-      addItem(r.to, { type: 'normal', amount: r.amount, normalDetails: details })
+      const reverse = normalDetails
+        .filter((d) => d.from === r.to && d.to === personId)
+        .map((d) => ({
+          expenseId: d.expenseId,
+          expenseTitle: d.expenseTitle,
+          amount: d.amount,
+          offset: true,
+        }))
+      const directNet =
+        forward.reduce((s, d) => s + d.amount, 0) -
+        reverse.reduce((s, d) => s + d.amount, 0)
+      addItem(r.to, {
+        type: 'normal',
+        amount: r.amount,
+        normalDetails: [...forward, ...reverse],
+        directNet,
+      })
     }
   }
 

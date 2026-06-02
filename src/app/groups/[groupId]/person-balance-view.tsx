@@ -130,13 +130,28 @@ export function PersonBalanceView({
                             <span className="tabular-nums">
                               {formatCurrency(currency, item.amount, locale)}
                             </span>
+                            {item.type === 'normal' &&
+                              item.directNet !== undefined &&
+                              Math.round(item.directNet) !==
+                                Math.round(item.amount) && (
+                                <span className="text-xs text-muted-foreground">
+                                  {t('suggestedVsDirect', {
+                                    direct: formatCurrency(
+                                      currency,
+                                      item.directNet,
+                                      locale,
+                                    ),
+                                  })}
+                                </span>
+                              )}
                             {item.type === 'straight' && item.expenseTitle && (
                               <span className="text-xs text-muted-foreground">
                                 {t('forExpense', { expense: item.expenseTitle })}
                               </span>
                             )}
                             {item.type === 'normal' &&
-                              item.normalDetails?.length === 1 && (
+                              item.normalDetails?.length === 1 &&
+                              !item.normalDetails[0].offset && (
                                 <span className="text-xs text-muted-foreground">
                                   {t('forExpense', {
                                     expense: item.normalDetails[0].expenseTitle,
@@ -158,9 +173,14 @@ export function PersonBalanceView({
                                 {item.normalDetails.map((detail) => (
                                   <span
                                     key={detail.expenseId}
-                                    className="text-xs text-muted-foreground"
+                                    className={`text-xs ${
+                                      detail.offset
+                                        ? 'text-red-600 dark:text-red-400'
+                                        : 'text-muted-foreground'
+                                    }`}
                                   >
                                     <span className="tabular-nums">
+                                      {detail.offset ? '−' : ''}
                                       {formatCurrency(
                                         currency,
                                         detail.amount,

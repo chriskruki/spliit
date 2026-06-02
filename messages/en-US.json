@@ -395,7 +395,8 @@
       "leaseBuyInLabel": "Buy-in",
       "leaseBuybackLabel": "Buyback",
       "forExpense": "for {expense}",
-      "forItem": "for {item}"
+      "forItem": "for {item}",
+      "suggestedVsDirect": "(suggested — direct net {direct})"
     }
   },
   "Stats": {
