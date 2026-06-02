@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { StraightBalanceItem } from '@/lib/balances'
 import { Currency } from '@/lib/currency'
 import { formatCurrency } from '@/lib/utils'
+import { trpc } from '@/trpc/client'
 import { Participant } from '@prisma/client'
 import { useLocale, useTranslations } from 'next-intl'
 import Link from 'next/link'
@@ -23,6 +24,14 @@ export function StraightBalancesList({
 }: Props) {
   const locale = useLocale()
   const t = useTranslations('Balances.Straight')
+  const utils = trpc.useUtils()
+
+  const toggleSettlement =
+    trpc.groups.expenses.toggleStraightSettlement.useMutation({
+      onSuccess: () => {
+        utils.groups.balances.invalidate()
+      },
+    })
 
   if (items.length === 0) {
     return <p className="text-sm pb-6">{t('noItems')}</p>
@@ -34,7 +43,11 @@ export function StraightBalancesList({
     <div className="text-sm">
       {items.map((item, index) => (
         <div className="py-4 flex justify-between" key={index}>
-          <div className="flex flex-col gap-1 items-start sm:flex-row sm:items-baseline sm:gap-4">
+          <div
+            className={`flex flex-col gap-1 items-start sm:flex-row sm:items-baseline sm:gap-4 ${
+              item.paid ? 'text-muted-foreground line-through' : ''
+            }`}
+          >
             <div>
               {t.rich('owes', {
                 from: getParticipant(item.from)?.name ?? '',
@@ -45,15 +58,36 @@ export function StraightBalancesList({
             <div className="text-xs text-muted-foreground truncate max-w-[200px]">
               {t('forExpense', { expense: item.expenseTitle })}
             </div>
-            <Button variant="link" asChild className="-mx-4 -my-3">
-              <Link
-                href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${item.from}&to=${item.to}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle)}`}
-              >
-                {t('markAsPaid')}
-              </Link>
+            {!item.paid && (
+              <Button variant="link" asChild className="-mx-4 -my-3">
+                <Link
+                  href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${item.from}&to=${item.to}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle)}`}
+                >
+                  {t('markAsPaid')}
+                </Link>
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto py-0.5 px-1.5 text-xs no-underline"
+              onClick={() =>
+                toggleSettlement.mutate({
+                  groupId,
+                  expenseId: item.expenseId,
+                  participantId: item.from,
+                })
+              }
+              disabled={toggleSettlement.isPending}
+            >
+              {item.paid ? t('toggleUnpaid') : t('togglePaid')}
             </Button>
           </div>
-          <div className="tabular-nums whitespace-nowrap">
+          <div
+            className={`tabular-nums whitespace-nowrap ${
+              item.paid ? 'text-muted-foreground line-through' : ''
+            }`}
+          >
             {formatCurrency(currency, item.amount, locale)}
           </div>
         </div>

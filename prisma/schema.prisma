@@ -33,6 +33,7 @@ model Participant {
   leaseExpenses   Expense[] @relation("LeaseOwner")
   subItemsPaidFor SubItemPaidFor[]
   leaseBuyInPayments LeaseBuyInPayment[]
+  straightSettlements StraightSettlement[]
 }
 
 model Category {
@@ -71,6 +72,7 @@ model Expense {
   notes            String?
   subItems         ExpenseSubItem[]
   leaseBuyInPayments LeaseBuyInPayment[]
+  straightSettlements StraightSettlement[]
 
   recurrenceRule         RecurrenceRule?       @default(NONE)
   recurringExpenseLink   RecurringExpenseLink?
@@ -172,6 +174,15 @@ enum ActivityType {
 }
 
 model LeaseBuyInPayment {
+  expenseId     String
+  participantId String
+  expense       Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([expenseId, participantId])
+}
+
+model StraightSettlement {
   expenseId     String
   participantId String
   expense       Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)

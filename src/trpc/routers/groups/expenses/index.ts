@@ -6,6 +6,7 @@ import { listGroupExpensesProcedure } from '@/trpc/routers/groups/expenses/list.
 import { toggleLeaseBuybackProcedure } from '@/trpc/routers/groups/expenses/toggle-lease-buyback.procedure'
 import { toggleLeaseBuybackActiveProcedure } from '@/trpc/routers/groups/expenses/toggle-lease-buyback-active.procedure'
 import { toggleLeaseBuyInProcedure } from '@/trpc/routers/groups/expenses/toggle-lease-buyin.procedure'
+import { toggleStraightSettlementProcedure } from '@/trpc/routers/groups/expenses/toggle-straight-settlement.procedure'
 import { updateGroupExpenseProcedure } from '@/trpc/routers/groups/expenses/update.procedure'
 
 export const groupExpensesRouter = createTRPCRouter({
@@ -17,4 +18,5 @@ export const groupExpensesRouter = createTRPCRouter({
   toggleLeaseBuyback: toggleLeaseBuybackProcedure,
   toggleLeaseBuybackActive: toggleLeaseBuybackActiveProcedure,
   toggleLeaseBuyIn: toggleLeaseBuyInProcedure,
+  toggleStraightSettlement: toggleStraightSettlementProcedure,
 })

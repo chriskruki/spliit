@@ -338,7 +338,7 @@
       "description": "Here are suggestions for optimized reimbursements between participants.",
       "noImbursements": "It looks like your group doesn't need any reimbursement 😁",
       "owes": "<strong>{from}</strong> owes <strong>{to}</strong>",
-      "markAsPaid": "Mark as paid"
+      "markAsPaid": "Reimburse"
     },
     "GrandTotal": {
       "title": "Summary",
@@ -358,7 +358,9 @@
       "noItems": "No straight-settle expenses yet.",
       "owes": "<strong>{from}</strong> owes <strong>{to}</strong>",
       "forExpense": "for {expense}",
-      "markAsPaid": "Mark as paid"
+      "markAsPaid": "Reimburse",
+      "togglePaid": "Mark as paid",
+      "toggleUnpaid": "Mark as unpaid"
     },
     "Lease": {
       "title": "Lease Items",
@@ -376,13 +378,13 @@
       "owedTo": "owed to {name}",
       "toggleBuyback": "Mark as bought back",
       "toggleBuybackUndo": "Mark as not bought back",
-      "createReimbursement": "Create reimbursement",
+      "createReimbursement": "Reimburse",
       "buyInBreakdown": "Buy-in",
       "buyInFrom": "from {name}",
       "buyInPaid": "Paid",
       "buyInUnpaid": "Unpaid",
-      "toggleBuyInPaid": "Mark paid",
-      "toggleBuyInUndo": "Mark unpaid"
+      "toggleBuyInPaid": "Mark as paid",
+      "toggleBuyInUndo": "Mark as unpaid"
     },
     "PersonTabs": {
       "all": "All",

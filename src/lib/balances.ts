@@ -19,6 +19,7 @@ export type StraightBalanceItem = {
   from: string
   to: string
   amount: number
+  paid: boolean
 }
 
 export type NormalExpenseDetail = {
@@ -282,6 +283,9 @@ function getStraightBalanceItems(
 ): StraightBalanceItem[] {
   const items: StraightBalanceItem[] = []
   for (const expense of expenses) {
+    const settledIds = new Set(
+      (expense.straightSettlements ?? []).map((s) => s.participantId),
+    )
     const shares = computeParticipantShares(expense)
     for (const share of shares) {
       if (share.participantId !== expense.paidBy.id && share.amount !== 0) {
@@ -291,6 +295,7 @@ function getStraightBalanceItems(
           from: share.participantId,
           to: expense.paidBy.id,
           amount: share.amount,
+          paid: settledIds.has(share.participantId),
         })
       }
     }
@@ -365,7 +370,9 @@ export function getSettlementBalances(
     totalOwed += r.amount
   }
   for (const item of straightItems) {
-    totalOwed += item.amount
+    if (!item.paid) {
+      totalOwed += item.amount
+    }
   }
   for (const item of leaseItems) {
     for (const b of item.buyInBreakdown) {

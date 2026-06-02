@@ -49,6 +49,12 @@ export function PersonBalanceView({
       utils.groups.balances.invalidate()
     },
   })
+  const toggleStraight =
+    trpc.groups.expenses.toggleStraightSettlement.useMutation({
+      onSuccess: () => {
+        utils.groups.balances.invalidate()
+      },
+    })
 
   const debts = getPersonDebts(
     personId,
@@ -185,17 +191,34 @@ export function PersonBalanceView({
                             </Button>
                           )}
                           {item.type === 'straight' && (
-                            <Button
-                              variant="link"
-                              asChild
-                              className="-mx-2 -my-1 h-auto text-xs"
-                            >
-                              <Link
-                                href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle!)}`}
+                            <>
+                              <Button
+                                variant="link"
+                                asChild
+                                className="-mx-2 -my-1 h-auto text-xs"
                               >
-                                {tStraight('markAsPaid')}
-                              </Link>
-                            </Button>
+                                <Link
+                                  href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle!)}`}
+                                >
+                                  {tStraight('markAsPaid')}
+                                </Link>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto py-0.5 px-1.5 text-xs"
+                                onClick={() =>
+                                  toggleStraight.mutate({
+                                    groupId,
+                                    expenseId: item.expenseId!,
+                                    participantId: personId,
+                                  })
+                                }
+                                disabled={toggleStraight.isPending}
+                              >
+                                {tStraight('togglePaid')}
+                              </Button>
+                            </>
                           )}
                           {item.type === 'lease-buyin' && (
                             <>

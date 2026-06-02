@@ -500,6 +500,11 @@ export async function getGroupExpenses(
           participantId: true,
         },
       },
+      straightSettlements: {
+        select: {
+          participantId: true,
+        },
+      },
     },
     where: {
       groupId,

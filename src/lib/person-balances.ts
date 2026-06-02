@@ -58,9 +58,9 @@ export function getPersonDebts(
     }
   }
 
-  // Straight: filter where from === personId
+  // Straight: filter where from === personId and not yet settled
   for (const s of straight) {
-    if (s.from === personId) {
+    if (s.from === personId && !s.paid) {
       addItem(s.to, {
         type: 'straight',
         amount: s.amount,
