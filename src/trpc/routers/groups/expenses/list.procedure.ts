@@ -15,17 +15,26 @@ export const listGroupExpensesProcedure = baseProcedure
           Object.values(SettlementMode) as any,
         )
         .optional(),
+      isReimbursement: z.boolean().optional(),
     }),
   )
   .query(
     async ({
-      input: { groupId, cursor = 0, limit = 10, filter, settlementMode },
+      input: {
+        groupId,
+        cursor = 0,
+        limit = 10,
+        filter,
+        settlementMode,
+        isReimbursement,
+      },
     }) => {
       const expenses = await getGroupExpenses(groupId, {
         offset: cursor,
         length: limit + 1,
         filter,
         settlementMode,
+        isReimbursement,
       })
       return {
         expenses: expenses.slice(0, limit).map((expense) => ({

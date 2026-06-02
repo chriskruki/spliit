@@ -59,32 +59,30 @@ function getGroupedExpensesByDate(expenses: ExpensesType) {
   }, {})
 }
 
-const SETTLEMENT_FILTERS = [
+type ExpenseFilter = SettlementMode | 'REIMBURSEMENT' | undefined
+
+const SETTLEMENT_FILTERS: ReadonlyArray<{
+  value: ExpenseFilter
+  label: string
+  color: string
+}> = [
   { value: undefined, label: 'filterAll', color: '' },
+  { value: 'NORMAL', label: 'filterNormal', color: 'bg-green-500' },
+  { value: 'STRAIGHT', label: 'filterStraight', color: 'bg-blue-500' },
+  { value: 'LEASE', label: 'filterLease', color: 'bg-amber-500' },
   {
-    value: 'NORMAL' as SettlementMode,
-    label: 'filterNormal',
-    color: 'bg-green-500',
+    value: 'REIMBURSEMENT',
+    label: 'filterReimbursement',
+    color: 'bg-purple-500',
   },
-  {
-    value: 'STRAIGHT' as SettlementMode,
-    label: 'filterStraight',
-    color: 'bg-blue-500',
-  },
-  {
-    value: 'LEASE' as SettlementMode,
-    label: 'filterLease',
-    color: 'bg-amber-500',
-  },
-] as const
+]
 
 export function ExpenseList() {
   const { groupId, group } = useCurrentGroup()
   const [searchText, setSearchText] = useState('')
   const [debouncedSearchText] = useDebounce(searchText, 300)
-  const [settlementFilter, setSettlementFilter] = useState<
-    SettlementMode | undefined
-  >(undefined)
+  const [settlementFilter, setSettlementFilter] =
+    useState<ExpenseFilter>(undefined)
   const t = useTranslations('Expenses')
 
   const participants = group?.participants
@@ -134,7 +132,12 @@ export function ExpenseList() {
       <ExpenseListForSearch
         groupId={groupId}
         searchText={debouncedSearchText}
-        settlementMode={settlementFilter}
+        settlementMode={
+          settlementFilter === 'REIMBURSEMENT' ? undefined : settlementFilter
+        }
+        isReimbursement={
+          settlementFilter === 'REIMBURSEMENT' ? true : undefined
+        }
       />
     </>
   )
@@ -144,10 +147,12 @@ const ExpenseListForSearch = ({
   groupId,
   searchText,
   settlementMode,
+  isReimbursement,
 }: {
   groupId: string
   searchText: string
   settlementMode?: SettlementMode
+  isReimbursement?: boolean
 }) => {
   const utils = trpc.useUtils()
   const { group } = useCurrentGroup()
@@ -166,7 +171,13 @@ const ExpenseListForSearch = ({
     isLoading: expensesAreLoading,
     fetchNextPage,
   } = trpc.groups.expenses.list.useInfiniteQuery(
-    { groupId, limit: PAGE_SIZE, filter: searchText, settlementMode },
+    {
+      groupId,
+      limit: PAGE_SIZE,
+      filter: searchText,
+      settlementMode,
+      isReimbursement,
+    },
     { getNextPageParam: ({ nextCursor }) => nextCursor },
   )
   const expenses = data?.pages.flatMap((page) => page.expenses)

@@ -451,6 +451,7 @@ export async function getGroupExpenses(
     length?: number
     filter?: string
     settlementMode?: string
+    isReimbursement?: boolean
   },
 ) {
   await createRecurringExpenses()
@@ -514,6 +515,10 @@ export async function getGroupExpenses(
       settlementMode: options?.settlementMode
         ? (options.settlementMode as any)
         : undefined,
+      isReimbursement:
+        options?.isReimbursement !== undefined
+          ? options.isReimbursement
+          : undefined,
     },
     orderBy: [{ expenseDate: 'desc' }, { createdAt: 'desc' }],
     skip: options && options.offset,

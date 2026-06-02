@@ -28,6 +28,7 @@
     "filterNormal": "Normal",
     "filterStraight": "Straight",
     "filterLease": "Lease",
+    "filterReimbursement": "Reimbursement",
     "ActiveUserModal": {
       "title": "Who are you?",
       "description": "Tell us which participant you are to let us customize how the information is displayed.",
