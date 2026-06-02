@@ -23,6 +23,7 @@ export const listGroupBalancesProcedure = baseProcedure
     return {
       balances: settlementBalances.normal.publicBalances,
       reimbursements: settlementBalances.normal.reimbursements,
+      normalDetails: settlementBalances.normal.normalDetails,
       normalExpenses,
       straight: settlementBalances.straight,
       lease: settlementBalances.lease,

@@ -1,5 +1,6 @@
 import {
   getBalances,
+  getNormalExpenseDetails,
   getPublicBalances,
   getSettlementBalances,
   getSuggestedReimbursements,
@@ -466,5 +467,85 @@ describe('sub-items - balance calculation', () => {
     expect(balances['B'].paidFor).toBe(1000)
     expect(balances['A'].total).toBe(1000)
     expect(balances['B'].total).toBe(-1000)
+  })
+})
+
+describe('getNormalExpenseDetails', () => {
+  it('emits one detail per debtor for an even-split NORMAL expense', () => {
+    const expenses = [
+      makeExpense({
+        id: 'e1',
+        title: 'Groceries',
+        amount: 1000,
+        paidById: 'A',
+        paidForIds: ['A', 'B'],
+      }),
+    ]
+    const details = getNormalExpenseDetails(expenses)
+    expect(details).toEqual([
+      { expenseId: 'e1', expenseTitle: 'Groceries', from: 'B', to: 'A', amount: 500 },
+    ])
+  })
+
+  it('skips the payer and emits one detail per other participant', () => {
+    const expenses = [
+      makeExpense({
+        id: 'e1',
+        title: 'Dinner',
+        amount: 900,
+        paidById: 'A',
+        paidForIds: ['A', 'B', 'C'],
+      }),
+    ]
+    const details = getNormalExpenseDetails(expenses)
+    expect(details).toHaveLength(2)
+    expect(details).toEqual(
+      expect.arrayContaining([
+        { expenseId: 'e1', expenseTitle: 'Dinner', from: 'B', to: 'A', amount: 300 },
+        { expenseId: 'e1', expenseTitle: 'Dinner', from: 'C', to: 'A', amount: 300 },
+      ]),
+    )
+  })
+
+  it('produces details across multiple expenses', () => {
+    const expenses = [
+      makeExpense({ id: 'e1', title: 'Lunch', amount: 200, paidById: 'A', paidForIds: ['A', 'B'] }),
+      makeExpense({ id: 'e2', title: 'Cab', amount: 400, paidById: 'B', paidForIds: ['A', 'B'] }),
+    ]
+    const details = getNormalExpenseDetails(expenses)
+    expect(details).toEqual(
+      expect.arrayContaining([
+        { expenseId: 'e1', expenseTitle: 'Lunch', from: 'B', to: 'A', amount: 100 },
+        { expenseId: 'e2', expenseTitle: 'Cab', from: 'A', to: 'B', amount: 200 },
+      ]),
+    )
+    expect(details).toHaveLength(2)
+  })
+})
+
+describe('getSettlementBalances - normalDetails', () => {
+  it('returns normalDetails only for NORMAL expenses', () => {
+    const expenses = [
+      makeExpense({
+        id: 'n1',
+        title: 'Pizza',
+        amount: 1000,
+        paidById: 'A',
+        paidForIds: ['A', 'B'],
+        settlementMode: 'NORMAL',
+      }),
+      makeExpense({
+        id: 's1',
+        title: 'Coffee',
+        amount: 600,
+        paidById: 'A',
+        paidForIds: ['A', 'B'],
+        settlementMode: 'STRAIGHT',
+      }),
+    ]
+    const settlement = getSettlementBalances(expenses)
+    expect(settlement.normal.normalDetails).toEqual([
+      { expenseId: 'n1', expenseTitle: 'Pizza', from: 'B', to: 'A', amount: 500 },
+    ])
   })
 })

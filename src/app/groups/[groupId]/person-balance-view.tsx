@@ -2,7 +2,12 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { LeaseItem, Reimbursement, StraightBalanceItem } from '@/lib/balances'
+import {
+  LeaseItem,
+  NormalExpenseDetail,
+  Reimbursement,
+  StraightBalanceItem,
+} from '@/lib/balances'
 import { Currency } from '@/lib/currency'
 import { getPersonDebts, PersonDebtItem } from '@/lib/person-balances'
 import { formatCurrency } from '@/lib/utils'
@@ -16,6 +21,7 @@ type Props = {
   reimbursements: Reimbursement[]
   straight: StraightBalanceItem[]
   lease: LeaseItem[]
+  normalDetails: NormalExpenseDetail[]
   participants: Participant[]
   currency: Currency
   groupId: string
@@ -26,6 +32,7 @@ export function PersonBalanceView({
   reimbursements,
   straight,
   lease,
+  normalDetails,
   participants,
   currency,
   groupId,
@@ -43,7 +50,13 @@ export function PersonBalanceView({
     },
   })
 
-  const debts = getPersonDebts(personId, reimbursements, straight, lease)
+  const debts = getPersonDebts(
+    personId,
+    reimbursements,
+    straight,
+    lease,
+    normalDetails,
+  )
 
   const getParticipant = (id: string) => participants.find((p) => p.id === id)
   const personName = getParticipant(personId)?.name ?? ''
@@ -104,22 +117,56 @@ export function PersonBalanceView({
                     {items.map((item, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between text-sm py-1 gap-2"
+                        className="flex items-start justify-between text-sm py-1 gap-2"
                       >
-                        <span className="flex items-center gap-1.5 flex-wrap">
-                          <span className="tabular-nums">
-                            {formatCurrency(currency, item.amount, locale)}
-                          </span>
-                          {item.type === 'straight' && item.expenseTitle && (
-                            <span className="text-xs text-muted-foreground">
-                              {t('forExpense', { expense: item.expenseTitle })}
+                        <span className="flex flex-col gap-0.5 min-w-0">
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span className="tabular-nums">
+                              {formatCurrency(currency, item.amount, locale)}
                             </span>
-                          )}
-                          {(item.type === 'lease-buyin' ||
-                            item.type === 'lease-buyback') &&
-                            item.leaseItemName && (
+                            {item.type === 'straight' && item.expenseTitle && (
                               <span className="text-xs text-muted-foreground">
-                                {t('forItem', { item: item.leaseItemName })}
+                                {t('forExpense', { expense: item.expenseTitle })}
+                              </span>
+                            )}
+                            {item.type === 'normal' &&
+                              item.normalDetails?.length === 1 && (
+                                <span className="text-xs text-muted-foreground">
+                                  {t('forExpense', {
+                                    expense: item.normalDetails[0].expenseTitle,
+                                  })}
+                                </span>
+                              )}
+                            {(item.type === 'lease-buyin' ||
+                              item.type === 'lease-buyback') &&
+                              item.leaseItemName && (
+                                <span className="text-xs text-muted-foreground">
+                                  {t('forItem', { item: item.leaseItemName })}
+                                </span>
+                              )}
+                          </span>
+                          {item.type === 'normal' &&
+                            item.normalDetails &&
+                            item.normalDetails.length > 1 && (
+                              <span className="flex flex-col pl-2 space-y-0.5">
+                                {item.normalDetails.map((detail) => (
+                                  <span
+                                    key={detail.expenseId}
+                                    className="text-xs text-muted-foreground"
+                                  >
+                                    <span className="tabular-nums">
+                                      {formatCurrency(
+                                        currency,
+                                        detail.amount,
+                                        locale,
+                                      )}
+                                    </span>
+                                    {' — '}
+                                    {t('forExpense', {
+                                      expense: detail.expenseTitle,
+                                    })}
+                                  </span>
+                                ))}
                               </span>
                             )}
                         </span>

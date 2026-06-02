@@ -1,4 +1,15 @@
-import { LeaseItem, Reimbursement, StraightBalanceItem } from '@/lib/balances'
+import {
+  LeaseItem,
+  NormalExpenseDetail,
+  Reimbursement,
+  StraightBalanceItem,
+} from '@/lib/balances'
+
+export type PersonNormalDetail = {
+  expenseId: string
+  expenseTitle: string
+  amount: number
+}
 
 export type PersonDebtItem = {
   type: 'normal' | 'straight' | 'lease-buyin' | 'lease-buyback'
@@ -8,6 +19,7 @@ export type PersonDebtItem = {
   leaseItemName?: string
   leaseExpenseId?: string
   buyInParticipantId?: string
+  normalDetails?: PersonNormalDetail[]
 }
 
 export type CreditorDebt = {
@@ -21,6 +33,7 @@ export function getPersonDebts(
   reimbursements: Reimbursement[],
   straight: StraightBalanceItem[],
   lease: LeaseItem[],
+  normalDetails: NormalExpenseDetail[] = [],
 ): CreditorDebt[] {
   const creditorMap = new Map<string, PersonDebtItem[]>()
 
@@ -34,7 +47,14 @@ export function getPersonDebts(
   // Normal: filter reimbursements where from === personId
   for (const r of reimbursements) {
     if (r.from === personId) {
-      addItem(r.to, { type: 'normal', amount: r.amount })
+      const details = normalDetails
+        .filter((d) => d.from === personId && d.to === r.to)
+        .map((d) => ({
+          expenseId: d.expenseId,
+          expenseTitle: d.expenseTitle,
+          amount: d.amount,
+        }))
+      addItem(r.to, { type: 'normal', amount: r.amount, normalDetails: details })
     }
   }
 

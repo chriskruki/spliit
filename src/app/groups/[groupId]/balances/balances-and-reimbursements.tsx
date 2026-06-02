@@ -197,6 +197,7 @@ export default function BalancesAndReimbursements() {
               reimbursements={balancesData.reimbursements}
               straight={balancesData.straight}
               lease={balancesData.lease}
+              normalDetails={balancesData.normalDetails}
               participants={group.participants}
               currency={getCurrencyFromGroup(group)}
               groupId={groupId}

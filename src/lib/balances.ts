@@ -21,6 +21,14 @@ export type StraightBalanceItem = {
   amount: number
 }
 
+export type NormalExpenseDetail = {
+  expenseId: string
+  expenseTitle: string
+  from: string
+  to: string
+  amount: number
+}
+
 export type LeaseItem = {
   expenseId: string
   itemName: string
@@ -38,6 +46,7 @@ export type SettlementBalances = {
     balances: Balances
     reimbursements: Reimbursement[]
     publicBalances: Balances
+    normalDetails: NormalExpenseDetail[]
   }
   straight: StraightBalanceItem[]
   lease: LeaseItem[]
@@ -247,6 +256,27 @@ function computeParticipantShares(expense: GroupExpenses[number]) {
   }))
 }
 
+export function getNormalExpenseDetails(
+  expenses: GroupExpenses,
+): NormalExpenseDetail[] {
+  const items: NormalExpenseDetail[] = []
+  for (const expense of expenses) {
+    const shares = computeParticipantShares(expense)
+    for (const share of shares) {
+      if (share.participantId !== expense.paidBy.id && share.amount !== 0) {
+        items.push({
+          expenseId: expense.id,
+          expenseTitle: expense.title,
+          from: share.participantId,
+          to: expense.paidBy.id,
+          amount: share.amount,
+        })
+      }
+    }
+  }
+  return items
+}
+
 function getStraightBalanceItems(
   expenses: GroupExpenses,
 ): StraightBalanceItem[] {
@@ -322,6 +352,7 @@ export function getSettlementBalances(
   const balances = getBalances(normalExpenses)
   const reimbursements = getSuggestedReimbursements(balances)
   const publicBalances = getPublicBalances(reimbursements)
+  const normalDetails = getNormalExpenseDetails(normalExpenses)
 
   const straightItems = getStraightBalanceItems(straightExpenses)
   const leaseItems = getLeaseItems(leaseExpenses)
@@ -350,7 +381,7 @@ export function getSettlementBalances(
   }
 
   return {
-    normal: { balances, reimbursements, publicBalances },
+    normal: { balances, reimbursements, publicBalances, normalDetails },
     straight: straightItems,
     lease: leaseItems,
     totals: {
