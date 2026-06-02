@@ -61,7 +61,7 @@ export function StraightBalancesList({
             {!item.paid && (
               <Button variant="link" asChild className="-mx-4 -my-3">
                 <Link
-                  href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${item.from}&to=${item.to}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle)}`}
+                  href={`/groups/${groupId}/expenses/create?reimbursement=yes&settlementMode=STRAIGHT&from=${item.from}&to=${item.to}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle)}`}
                 >
                   {t('markAsPaid')}
                 </Link>

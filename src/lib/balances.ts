@@ -283,6 +283,11 @@ function getStraightBalanceItems(
 ): StraightBalanceItem[] {
   const items: StraightBalanceItem[] = []
   for (const expense of expenses) {
+    // STRAIGHT-mode reimbursements are paper-trail only: they record that a
+    // settlement happened but must not produce their own (inverse) straight
+    // item. The user marks the original straight item paid via the manual
+    // settlement toggle.
+    if (expense.isReimbursement) continue
     const settledIds = new Set(
       (expense.straightSettlements ?? []).map((s) => s.participantId),
     )

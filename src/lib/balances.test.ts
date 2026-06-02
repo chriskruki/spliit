@@ -288,6 +288,36 @@ describe('straight mode - per-expense line items', () => {
       amount: 500,
     })
   })
+
+  it('skips STRAIGHT-mode reimbursements (paper-trail only)', () => {
+    const expenses = [
+      makeExpense({
+        id: 'rent',
+        amount: 1000,
+        paidById: 'A',
+        paidForIds: ['A', 'B'],
+        settlementMode: 'STRAIGHT',
+      }),
+      makeExpense({
+        id: 'reimb',
+        amount: 500,
+        paidById: 'B',
+        paidForIds: ['A'],
+        settlementMode: 'STRAIGHT',
+        isReimbursement: true,
+      }),
+    ]
+    const result = getSettlementBalances(expenses)
+    // The original 'rent' produces a straight item; the reimbursement is
+    // paper-trail only and must NOT produce a ghost inverse straight item.
+    expect(result.straight).toHaveLength(1)
+    expect(result.straight[0]).toMatchObject({
+      expenseId: 'rent',
+      from: 'B',
+      to: 'A',
+      amount: 500,
+    })
+  })
 })
 
 describe('lease mode - buyback breakdown', () => {

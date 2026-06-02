@@ -222,7 +222,7 @@ export function PersonBalanceView({
                                 className="-mx-2 -my-1 h-auto text-xs"
                               >
                                 <Link
-                                  href={`/groups/${groupId}/expenses/create?reimbursement=yes&from=${personId}&to=${debt.creditorId}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle!)}`}
+                                  href={`/groups/${groupId}/expenses/create?reimbursement=yes&settlementMode=STRAIGHT&from=${personId}&to=${debt.creditorId}&amount=${item.amount}&expenseName=${encodeURIComponent(item.expenseTitle!)}`}
                                 >
                                   {tStraight('markAsPaid')}
                                 </Link>

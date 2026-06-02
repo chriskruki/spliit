@@ -254,7 +254,8 @@ export function ExpenseForm({
           documents: [],
           notes: '',
           recurrenceRule: RecurrenceRule.NONE,
-          settlementMode: 'NORMAL' as SettlementMode,
+          settlementMode: (searchParams.get('settlementMode') ??
+            'NORMAL') as SettlementMode,
           subItems: [],
         }
       : {
