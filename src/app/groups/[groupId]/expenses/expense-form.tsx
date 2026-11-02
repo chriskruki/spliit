@@ -297,6 +297,16 @@ export function ExpenseForm({
     name: 'subItems' as any,
     keyName: 'key',
   })
+  const appendSubItem = () =>
+    subItemsFieldArray.append({
+      title: '',
+      amount: 0,
+      splitMode: 'EVENLY',
+      paidFor: group.participants.map((p) => ({
+        participant: p.id,
+        shares: '1' as any,
+      })),
+    } as any)
   const [isCategoryLoading, setCategoryLoading] = useState(false)
   const activeUserId = useActiveUser(group.id)
 
@@ -1466,17 +1476,7 @@ export function ExpenseForm({
                 variant="link"
                 type="button"
                 className="-my-2 -mx-4"
-                onClick={() => {
-                  subItemsFieldArray.append({
-                    title: '',
-                    amount: 0,
-                    splitMode: 'EVENLY',
-                    paidFor: group.participants.map((p) => ({
-                      participant: p.id,
-                      shares: '1' as any,
-                    })),
-                  } as any)
-                }}
+                onClick={appendSubItem}
               >
                 <Plus className="w-4 h-4 mr-1" />
                 {t('SubItems.addSubItem')}
@@ -1779,6 +1779,15 @@ export function ExpenseForm({
                     {t('SubItems.totalExceeded')}
                   </p>
                 )}
+              <Button
+                variant="outline"
+                type="button"
+                className="w-full"
+                onClick={appendSubItem}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                {t('SubItems.addSubItem')}
+              </Button>
             </CardContent>
           )}
         </Card>
