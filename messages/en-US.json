@@ -83,6 +83,14 @@
     "NotFound": {
       "text": "This group does not exist.",
       "link": "Go to recently visited groups"
+    },
+    "Error": {
+      "title": "Can't reach the database",
+      "text": "The database may be asleep or archived after a period of inactivity. Waking it up can take a few seconds.",
+      "wake": "Wake up database",
+      "waking": "Waking up…",
+      "failed": "Still unreachable. Wait a moment and try again.",
+      "link": "Go to recently visited groups"
     }
   },
   "GroupForm": {
